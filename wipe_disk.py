@@ -11,4 +11,7 @@ class do_wipe:
             print(f"Successfully wiped {disk_identifier}")
 
         except subprocess.CalledProcessError as e:
-            print(f"Command failed: {e}")
+            print(f"Command failed: {e}") 
+
+
+            
