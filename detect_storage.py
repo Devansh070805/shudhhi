@@ -21,52 +21,24 @@ from wipe_disk import do_wipe
 os_name = platform.system()
 print(f'Detected System: {os_name}')
 
-if os_name == 'Linux':
-    disks = get_disks_linux()
-elif os_name == 'Windows':
-    disks = get_disks_windows()
-elif os_name == 'Darwin':
-    disks = get_disks_darwin()
+
+if os_name == 'Darwin':
+    from macos_disks import get_external_disks_darwin
+    disk_info, name_to_id = get_external_disks_darwin()
 else:
-    disks = get_disks_android()
+    disks = None
+    if os_name == 'Linux':
+        disks = get_disks_linux()
+    elif os_name == 'Windows':
+        disks = get_disks_windows()
+    else:
+        disks = get_disks_android()
 
-disk_info = {} 
-disk_name = ''
-
-print(disks)
-
-name_to_id = {} # dictionary to map the selected name to its disk_id
-
-# function to get the manufacturers name to make it easier for the user
-def replace_with_name(disk_id):
-     name =  subprocess.getoutput(f"diskutil info {disk_id} | grep 'Device / Media Name'").split(":")[-1].strip()
-     name_to_id[name] = "/dev/" + disk_id
-     return name
-
-# a dictionary to story data of format -> disk_name: storage
-for line in disks.split("\n"):
-    # for Darwin
-    if '*' in line:
-        if disk_name == '':
-            continue
-        sp = line.split()
-        size = sp[2][1:] + " " +  sp[3]
-        disk_info[replace_with_name(disk_name)] = size
-        disk_name = ''
-        
-    if line.startswith("/dev/") and line.endswith("(external, physical):"): # extracting only the physical devices and not their partitions
-        disk_name = line.split()[0][5:] # this extracts the name of the disk 
-        '''
-        on analyzing the outptu format we can see that the storage capacity
-        of physical devices is marked with '*', so we can write a simple logic for that
-        coudl also arguably use the 'identifier' name is above '*' logic to simply fetch the name check once later.
-        NOTE -> FOR KNOW I AM ONLY ALLOWING EXTERNAL DRIVES TO SHOW UP FOR WIPING TO PREVENT ANY MISTAKE
-        WRITE LOGIC TO HANDLE NO EXTERNAL DEVICES CONNECTED
-        '''
-    
-
-print(disk_info)
-print(name_to_id)
+    disk_info = {}
+    disk_name = ''
+    name_to_id = {}
+    print(disks)
+    # ...existing code for non-macOS parsing (if any, e.g. Linux/Windows/Android)...
 
 display_options = [f"{k} - {v}" for k, v in disk_info.items()]
 
@@ -131,8 +103,9 @@ combo = ttk.Combobox(root, values=display_options, state="readonly")
 combo.grid(row=1, column=0, padx=10, pady=10)
 
 combo.bind("<<ComboboxSelected>>", on_select)
-combo.current(0)
-print("ddd", combo.get())
+if display_options:
+    combo.current(0)
+    print("ddd", combo.get())
 
 button = tk.Button(root, text="Wipe Now", command=on_button_click)
 button.grid(row=2, column=0, pady=20)
