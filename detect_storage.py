@@ -26,19 +26,21 @@ if os_name == 'Darwin':
     from macos_disks import get_external_disks_darwin
     disk_info, name_to_id = get_external_disks_darwin()
 else:
-    disks = None
-    if os_name == 'Linux':
-        disks = get_disks_linux()
-    elif os_name == 'Windows':
-        disks = get_disks_windows()
+    if os_name == 'Windows':
+        disk_info = get_disks_windows()
+        name_to_id = {k: k for k in disk_info.keys()}  # Use disk name as ID for Windows
     else:
-        disks = get_disks_android()
+        disks = None
+        if os_name == 'Linux':
+            disks = get_disks_linux()
+        else:
+            disks = get_disks_android()
 
-    disk_info = {}
-    disk_name = ''
-    name_to_id = {}
-    print(disks)
-    # ...existing code for non-macOS parsing (if any, e.g. Linux/Windows/Android)...
+        disk_info = {}
+        disk_name = ''
+        name_to_id = {}
+        print(disks)
+        # ...existing code for non-macOS parsing (if any, e.g. Linux/Android)...
 
 display_options = [f"{k} - {v}" for k, v in disk_info.items()]
 
