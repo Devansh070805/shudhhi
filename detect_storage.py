@@ -9,7 +9,7 @@ import platform
 import json
 import re
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from linux_disks import get_disks_linux
 from windows_disks import get_disks_windows
 from macos_disks import get_disks_darwin
@@ -60,11 +60,47 @@ def on_select(event):
     selected_info = disk_info[selected_key]
     print(f"You selected: {selected_key} -> {selected_info}")
 
+def show_warning(selected_disk):
+    """Custom warning dialog with Continue / Cancel buttons"""
+    warning = tk.Toplevel(root)
+    warning.title("⚠️ WARNING")
+    warning.geometry("400x200")
+    warning.grab_set()  
+
+    msg = (
+        f"You are about to permanently ERASE all data on:\n\n"
+        f"{selected_disk}\n\n"
+        f"This action cannot be undone!"
+    )
+    tk.Label(warning, text=msg, wraplength=350, justify="left", fg="red").pack(pady=10)
+
+    # Buttons
+    btn_frame = tk.Frame(warning)
+    btn_frame.pack(pady=20)
+
+    def on_continue():
+        print("User chose CONTINUE — wiping disk...")
+        warning.destroy() 
+
+    def on_cancel():
+        print("User chose CANCEL — returning to disk selection")
+        warning.destroy()  
+
+    tk.Button(btn_frame, text="Cancel", command=on_cancel).grid(row=0, column=1, padx=10)
+    tk.Button(btn_frame, text="Continue", command=on_continue).grid(row=0, column=0, padx=10)
+
+def on_button_click():
+    selected_disk = combo.get()
+    if selected_disk:
+        show_warning(selected_disk)
+    else:
+        messagebox.showwarning("No Selection", "Please select a disk first!")
+
 root = tk.Tk()
 root.title("Select your Drive: ")
 root.geometry("400x200")
 
-oss = f'Detected System: {os_name}'
+oss = f"Detected System: {os_name}"
 lbl = tk.Label(root, text=oss)
 lbl.grid(row=0, column=0, padx=10, pady=10)
 
@@ -74,6 +110,7 @@ combo.grid(row=1, column=0, padx=10, pady=10)
 combo.bind("<<ComboboxSelected>>", on_select)
 combo.current(0)
 
+button = tk.Button(root, text="Wipe Now", command=on_button_click)
+button.grid(row=2, column=0, pady=20)
+
 root.mainloop()
-
-
