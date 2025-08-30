@@ -107,7 +107,7 @@ def start_wipe_ui(disk_id, display_name):
     status_label = ttk.Label(status_frame, text=f"Preparing to wipe {display_name}...")
     status_label.pack(side='left')
     
-    log_box = tk.Text(progress_window, height=8, width=60, state='disabled', bg='#f0f0f0', disabledforeground='black') # added black text for readability
+    log_box = tk.Text(progress_window, height=8, width=60, state='disabled', bg='#f0f0f0', fg='black') # added black text for readability
     log_box.pack(pady=10, padx=10, fill="both", expand=True)
     
     wipe_thread = threading.Thread(
