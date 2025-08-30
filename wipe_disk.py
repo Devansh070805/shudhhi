@@ -51,3 +51,13 @@ class do_wipe:
             return False, error_message
         except Exception as e:
             return False, str(e)
+        
+
+    def do_wipe_windows(disk_identifier: str, state_callback=None):
+        return
+
+    def do_wipe_linux(disk_identifier: str, state_callback=None):
+        return
+
+    def do_wipe_android(disk_identifier: str, state_callback=None):
+        return
