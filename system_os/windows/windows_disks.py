@@ -19,6 +19,8 @@ def get_disks_windows():
             capture_output=True, text=True, check=True
         )
 
+        print(result.stdout)
+
         if not result.stdout.strip():
             return {}, {}
 
@@ -60,5 +62,9 @@ def get_disks_windows():
         print("Error: Failed to parse JSON from PowerShell.")
     except Exception as e:
         print(f"An unexpected error occurred in get_disks_windows: {e}")
+
+        
+    print(disk_info)
+    print(name_to_id)
         
     return disk_info, name_to_id
