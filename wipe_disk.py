@@ -114,6 +114,12 @@ class do_wipe:
             return False, "The wipe process became unresponsive and was terminated. Please reboot."
 
         except subprocess.CalledProcessError as e:
+            
+            # this is addedd to treat error status 1 as complted
+            if e.output and "No space left on device" in e.output:
+                print("dd finished with expected 'No space left' message. This is a successful wipe.")
+                return True, f"Wipe of {disk_identifier} completed successfully!"
+     
             if "Permission denied" in str(e.output):
                 error_message = "Permission denied. Please run this application with 'sudo'."
             else:
