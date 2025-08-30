@@ -12,63 +12,32 @@ import subprocess
 import tkinter as tk
 import threading
 from tkinter import ttk, messagebox
-from linux_disks import get_disks_linux
-from windows_disks import get_disks_windows
-from macos_disks import get_disks_darwin
-from android_disks import get_disks_android
+from system_os.linux.linux_disks import get_disks_linux
+from system_os.windows.windows_disks import get_disks_windows
+from system_os.darwin.darwin_disks import get_disks_darwin
+from system_os.android.android_disks import get_disks_android
 from wipe_disk import do_wipe
 
 
-os_name = platform.system()
+os_name = platform.system() # this is used to store the name of the operating system
 print(f'Detected System: {os_name}')
 
 if os_name == 'Linux':
-    disks = get_disks_linux()
+    disk_info, name_to_id = get_disks_linux()
 elif os_name == 'Windows':
-    disks = get_disks_windows()
+    disk_info, name_to_id = get_disks_windows()
 elif os_name == 'Darwin':
-    disks = get_disks_darwin()
+    disk_info, name_to_id  = get_disks_darwin()
 else:
-    disks = get_disks_android()
+    disk_info, name_to_id = get_disks_android()
 
-disk_info = {} 
-disk_name = ''
+    # need to handle the else case
 
-print(disks)
+# REQUIREMENTS:
+# disk_info -> {disk_name: disk_size}
+# name_to_id -> {disk_name: disk_id}
 
-name_to_id = {} # dictionary to map the selected name to its disk_id
-
-# function to get the manufacturers name to make it easier for the user
-def replace_with_name(disk_id):
-     name =  subprocess.getoutput(f"diskutil info {disk_id} | grep 'Device / Media Name'").split(":")[-1].strip()
-     name_to_id[name] = "/dev/" + disk_id
-     return name
-
-# a dictionary to story data of format -> disk_name: storage
-for line in disks.split("\n"):
-    # for Darwin
-    if '*' in line:
-        if disk_name == '':
-            continue
-        sp = line.split()
-        size = sp[2][1:] + " " +  sp[3]
-        disk_info[replace_with_name(disk_name)] = size
-        disk_name = ''
-        
-    if line.startswith("/dev/") and line.endswith("(external, physical):"): # extracting only the physical devices and not their partitions
-        disk_name = line.split()[0][5:] # this extracts the name of the disk 
-        '''
-        on analyzing the outptu format we can see that the storage capacity
-        of physical devices is marked with '*', so we can write a simple logic for that
-        coudl also arguably use the 'identifier' name is above '*' logic to simply fetch the name check once later.
-        NOTE -> FOR KNOW I AM ONLY ALLOWING EXTERNAL DRIVES TO SHOW UP FOR WIPING TO PREVENT ANY MISTAKE
-        WRITE LOGIC TO HANDLE NO EXTERNAL DEVICES CONNECTED
-        '''
-    
-
-print(disk_info)
-print(name_to_id)
-
+# display_options = ["Select Drive to Proceed:"]
 display_options = [f"{k} - {v}" for k, v in disk_info.items()]
 # if not display_options:
 #     display_options = ["No external drives detected"]
@@ -106,7 +75,6 @@ def show_warning(selected_display):
         disk_id = name_to_id[selected_key]  
         print(f"User chose CONTINUE — wiping {disk_id}...")
         warning.destroy()
-        # THIS IS THE FUNCTION CALL TO WIPE THE DATA
         start_wipe_ui(disk_id, selected_display)
 
     def on_cancel():
@@ -139,7 +107,7 @@ def start_wipe_ui(disk_id, display_name):
     status_label = ttk.Label(status_frame, text=f"Preparing to wipe {display_name}...")
     status_label.pack(side='left')
     
-    log_box = tk.Text(progress_window, height=8, width=60, state='disabled', bg='#f0f0f0')
+    log_box = tk.Text(progress_window, height=8, width=60, state='disabled', bg='#f0f0f0', disabledforeground='black') # added black text for readability
     log_box.pack(pady=10, padx=10, fill="both", expand=True)
     
     wipe_thread = threading.Thread(
@@ -169,7 +137,16 @@ def run_wipe_in_thread(disk_id, status_label, spinner_label, log_box):
 
     success, message = (False, "")
     try:
-        success, message = do_wipe.do_wipe_darwin(disk_id, state_callback)
+        # THIS IS THE FUNCTION CALL TO WIPE THE DATA
+        if os_name == 'Linux':
+            success, message = do_wipe.do_wipe_linux(disk_id, state_callback)
+        elif os_name == 'Windows':
+            success, message = do_wipe.do_wipe_windows(disk_id, state_callback)
+        elif os_name == 'Darwin':
+            success, message = do_wipe.do_wipe_darwin(disk_id, state_callback)
+        else:
+            success, message = do_wipe.do_wipe_android(disk_id, state_callback)
+        
     finally:
         if animation_id:
             root.after(0, root.after_cancel, animation_id)
@@ -215,7 +192,5 @@ if display_options:
 else:
     combo.set("No external disks detected")
     button.config(state="disabled")
-
-print("ddd", combo.get())
 
 root.mainloop()
