@@ -38,7 +38,8 @@ class ReportGenerator:
         """Draws the top section of the report, including titles and status."""
         
         # LOGO 1:
-        logo_left_path = "logo.png" 
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        logo_left_path = os.path.join(BASE_DIR, "..", "assets", "logo.png")
         print("Logo exists?", os.path.exists(logo_left_path))
         if os.path.exists(logo_left_path):
             c.drawImage(logo_left_path, 0.6 * inch, height - 1.3 * inch, width=1.0*inch, height=1.0*inch, preserveAspectRatio=True, mask='auto')
@@ -48,10 +49,12 @@ class ReportGenerator:
 
         # LOGO 2:
         if report_data.get('dynamic_data').get('status') == 'Success':
-            logo_right_path = "success.png"
+            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+            logo_right_path = os.path.join(BASE_DIR, "..", "assets", "success.png")
             print("Logo exists?", os.path.exists(logo_right_path))
         else:
-            logo_right_path = "failed.png" 
+            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+            logo_right_path = os.path.join(BASE_DIR, "..", "assets", "failed.png") 
             print("Logo exists?", os.path.exists(logo_right_path))
 
         if os.path.exists(logo_right_path):

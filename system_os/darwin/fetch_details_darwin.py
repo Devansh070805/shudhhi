@@ -82,14 +82,5 @@ def get_disk_info_darwin(disk_identifier):
         print(f"An error occurred: {e}")
         return None
 
-# --- Example of how to run it ---
-if __name__ == "__main__":
-    # Replace 'disk10' with a real external disk identifier from your system.
-    target_disk_id = "disk10" 
-    
-    disk_details = get_disk_info_darwin(target_disk_id)
-    
-    if disk_details:
-        # Pretty print the JSON output
-        print(json.dumps(disk_details, indent=4))
+
 
