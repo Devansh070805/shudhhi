@@ -7,7 +7,7 @@ def get_disk_info_windows(disk_identifier):
     try:
         ps_cmd = (
             f"Get-CimInstance Win32_DiskDrive | "
-            f"Where-Object {{ $_.DeviceID -eq '{escaped_disk_id}' }} | "
+            f"Where-Object {{ $_.DeviceID -eq '{disk_identifier}' }} | "
             f"Select-Object * | "
             f"ConvertTo-Json -Compress"
         )
