@@ -1,0 +1,15 @@
+{
+  "page_heading": "Disk Erasure Report",
+  "software_name": "Shudhhi",
+  "software_version": "1.0.0",
+  "organization_performing_the_disc_erasure": {
+    "Business Name": "Shudhhi Secure Erasure",
+    "Business Address": "Thapar Institute, Patiala",
+    "Contact Name": "Shudhhi Support Team",
+    "Contact Phone": "+91 XXXXXXXXXX"
+  },
+  "technician_id": {
+    "Name/ID": "Shudhhi Automated Erasure Tool"
+  }
+}
+
