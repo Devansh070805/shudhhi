@@ -9,6 +9,7 @@ import platform
 import json
 import re
 import subprocess
+import datetime
 import tkinter as tk
 import threading
 from tkinter import ttk, messagebox
@@ -17,6 +18,8 @@ from system_os.windows.windows_disks import get_disks_windows
 from system_os.darwin.darwin_disks import get_disks_darwin
 from system_os.android.android_disks import get_disks_android
 from wipe_disk import do_wipe
+from generate_report.generate_report import ReportGenerator
+from system_os.darwin.fetch_details_darwin import get_disk_info_darwin
 
 
 os_name = platform.system() # this is used to store the name of the operating system
@@ -42,8 +45,36 @@ display_options = [f"{k} - {v}" for k, v in disk_info.items()]
 # if not display_options:
 #     display_options = ["No external drives detected"]
 
+'''
+VARIABLES FOR THE REPORT GENERATOR 
+'''
+
+
+start_time = None
+end_time = None
+model = None
+serialNumber = None
+bus = None
+method = None
+status = None
+size = None
+
+#---------------------------------
+
+
 animation_id = None
 root = tk.Tk() 
+selected_key = ''
+
+def on_download_report(final_wipe_data):
+    """
+    This function is called when the button is clicked. It generates the report.
+    """
+    print("Generating report with the following data:")
+    print(json.dumps(final_wipe_data, indent=2))
+    report_gen = ReportGenerator(config_path="config.json")
+    report_gen.generate_pdf(final_wipe_data)
+    messagebox.showinfo("Report", "Report Downloaded Successfully.") # add if else here
 
 def on_select(event):
     selected_display = combo.get()
@@ -72,7 +103,23 @@ def show_warning(selected_display):
     btn_frame.pack(pady=20)
 
     def on_continue():
+        global start_time, fetched_data
         disk_id = name_to_id[selected_key]  
+        start_time = datetime.datetime.now() # storing the start datetime
+        print(disk_id)
+
+        # again we need to check the platform and call the things accordingly
+        # CHANGE THIS FOR EACH OS NOT CHANGING RIGHT NOW.
+        if os_name == 'Linux':
+            fetched_data = get_disk_info_darwin(disk_id)
+        elif os_name == 'Windows':
+            fetched_data = get_disk_info_darwin(disk_id)
+        elif os_name == 'Darwin':
+            fetched_data = get_disk_info_darwin(disk_id)
+            print("fetched data:", fetched_data)
+        else:
+            fetched_data = get_disk_info_darwin(disk_id)
+        
         print(f"User chose CONTINUE — wiping {disk_id}...")
         warning.destroy()
         start_wipe_ui(disk_id, selected_display)
@@ -109,15 +156,18 @@ def start_wipe_ui(disk_id, display_name):
     
     log_box = tk.Text(progress_window, height=8, width=60, state='disabled', bg='#f0f0f0', fg='black') # added black text for readability
     log_box.pack(pady=10, padx=10, fill="both", expand=True)
-    
+
+    report_button = tk.Button(progress_window, text="Download Report", state="disabled")
+    report_button.pack(pady=10)
+  
     wipe_thread = threading.Thread(
         target=run_wipe_in_thread,
-        args=(disk_id, status_label, spinner_label, log_box)
+        args=(disk_id, status_label, spinner_label, log_box, report_button)
     )
     wipe_thread.start()
 
 
-def run_wipe_in_thread(disk_id, status_label, spinner_label, log_box):
+def run_wipe_in_thread(disk_id, status_label, spinner_label, log_box, report_button):
     global animation_id
 
     def append_log(line):
@@ -137,27 +187,55 @@ def run_wipe_in_thread(disk_id, status_label, spinner_label, log_box):
 
     success, message = (False, "")
     try:
+
         # THIS IS THE FUNCTION CALL TO WIPE THE DATA
+
+        global end_time
+
         if os_name == 'Linux':
             success, message = do_wipe.do_wipe_linux(disk_id, state_callback)
+            end_time = datetime.datetime.now() # to store the end time of the process
+
         elif os_name == 'Windows':
             success, message = do_wipe.do_wipe_windows(disk_id, state_callback)
+            end_time = datetime.datetime.now() # to store the end time of the process
+
         elif os_name == 'Darwin':
             success, message = do_wipe.do_wipe_darwin(disk_id, state_callback)
+            end_time = datetime.datetime.now() # to store the end time of the process
+
         else:
             success, message = do_wipe.do_wipe_android(disk_id, state_callback)
+            end_time = datetime.datetime.now() # to store the end time of the process
         
     finally:
         if animation_id:
             root.after(0, root.after_cancel, animation_id)
             animation_id = None
 
+    final_wipe_data = {
+        "disk_id": disk_id,
+        "start_time": start_time.isoformat(),
+        "end_time": end_time.isoformat(),
+        "duration": str(end_time - start_time),
+        "status": "Success" if success else "Failed"
+    }
+
+    if fetched_data:
+        final_wipe_data = final_wipe_data | fetched_data # merging the dictionaries
+        print("final wiped data",final_wipe_data)
+    else:
+        print("No data is Fetched!!")
+
+
+    report_button.config(state="normal", command=lambda: on_download_report(final_wipe_data))
+
     if success:
         root.after(0, lambda: spinner_label.config(text="✅"))
         root.after(0, lambda: status_label.config(text=message))
         # Auto-close the window after 5 seconds on success
         # maybe add an option to close the window manually lets see
-        root.after(5000, status_label.master.master.destroy)
+        # root.after(10000, status_label.master.master.destroy)
     else:
         root.after(0, lambda: spinner_label.config(text="❌"))
         root.after(0, lambda: status_label.config(text="Wipe Failed!"))
@@ -171,7 +249,8 @@ def on_button_click():
     else:
         messagebox.showwarning("No Selection", "Please select a disk first!")
 
-root.title("Select your Drive: ")
+
+root.title("Shudhhi - Secure Disk Wiper")
 root.geometry("400x200")
 root.attributes("-topmost", True)
 
@@ -194,3 +273,4 @@ else:
     button.config(state="disabled")
 
 root.mainloop()
+
