@@ -66,6 +66,9 @@ animation_id = None
 root = tk.Tk() 
 selected_key = ''
 
+def on_click_advanced_options():
+    return
+
 def on_download_report(final_wipe_data):
     """
     This function is called when the button is clicked. It generates the report.
@@ -261,7 +264,7 @@ lbl.grid(row=0, column=0, padx=10, pady=10)
 button = tk.Button(root, text="Wipe Now", command=on_button_click)
 button.grid(row=2, column=0, pady=20)
 
-combo = ttk.Combobox(root, values=display_options, state="readonly")
+combo = ttk.Combobox(root, values=display_options, state="readonly", width = 36)
 combo.grid(row=1, column=0, padx=10, pady=10)
 
 combo.bind("<<ComboboxSelected>>", on_select)
