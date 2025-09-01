@@ -10,7 +10,6 @@ import json
 import re
 import subprocess
 import datetime
-import tkinter as tk
 import threading
 from tkinter import ttk, messagebox
 from system_os.linux.linux_disks import get_disks_linux
@@ -23,6 +22,14 @@ from system_os.darwin.fetch_details_darwin import get_disk_info_darwin
 from system_os.windows.fetch_details_windows import get_disk_info_windows
 from system_os.linux.fetch_details_linux import get_disk_info_linux
 from system_os.android.fetch_details_android import get_disk_info_android
+import sys
+from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
+                             QPushButton, QComboBox, QLabel, QMessageBox, QDialog, 
+                             QTextEdit, QDialogButtonBox, QSpacerItem, QSizePolicy)
+from PyQt6.QtCore import Qt, QThread, QObject, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QIcon, QFontDatabase
+import qtawesome as qta
+
 
 os_name = platform.system() # this is used to store the name of the operating system
 print(f'Detected System: {os_name}')
@@ -61,36 +68,6 @@ method = None
 status = None
 size = None
 
-#---------------------------------
-
-
-animation_id = None
-root = tk.Tk() 
-selected_key = ''
-
-def on_click_advanced_options():
-    # Create a new window for advanced options
-    adv_window = tk.Toplevel(root)
-    adv_window.title("Advanced Wipe Options")
-    adv_window.geometry("350x150")
-
-    adv_window.after(10, lambda: adv_window.attributes("-topmost", True))
-    adv_window.after(10, lambda: adv_window.grab_set())
-
-    algorithms = ["DoD 5220.22-M", "Gutmann", "Random Overwrite", "Single Pass Zero"]
-
-    tk.Label(adv_window, text="Select Wipe Algorithm:").pack(pady=10)
-    algo_var = tk.StringVar(value=algorithms[0])
-    algo_menu = ttk.Combobox(adv_window, textvariable=algo_var, values=algorithms, state="readonly", width=30)
-    algo_menu.pack(pady=5)
-
-    def on_select_algo():
-        selected_algo = algo_var.get()
-        print(f"Selected wipe algorithm: {selected_algo}")
-        # You can add logic here to use the selected algorithm
-        adv_window.destroy()
-
-    tk.Button(adv_window, text="Proceed", command=on_select_algo).pack(pady=10)
 
 
 def on_download_report(final_wipe_data):
@@ -101,42 +78,346 @@ def on_download_report(final_wipe_data):
     print(json.dumps(final_wipe_data, indent=2))
     report_gen = ReportGenerator(config_path="config.json")
     report_gen.generate_pdf(final_wipe_data)
-    messagebox.showinfo("Report", "Report Downloaded Successfully.") # add if else here
-
-def on_select(event):
-    selected_display = combo.get()
-    selected_key = selected_display.split(" - ")[0]
-    selected_info = disk_info[selected_key]
-    print(f"You selected: {selected_key} - {selected_info}")
+    # The message box is now shown from the PyQt UI thread
+    # messagebox.showinfo("Report", "Report Downloaded Successfully.") # add if else here
 
 
-def show_warning(selected_display):
-    warning = tk.Toplevel(root)
-    warning.title("WARNING!!!")
-    warning.geometry("400x200")
-    warning.grab_set()  
-    warning.attributes("-topmost", True)
+# --- STYLESHEET for a modern look ---
+STYLESHEET = """
+    QWidget {
+        background-color: #2E3440;
+        color: #D8DEE9;
+        font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+        font-size: 11pt;
+    }
+    QLabel {
+        color: #ECEFF4;
+    }
+    QLabel#TitleLabel {
+        font-size: 18pt;
+        font-weight: bold;
+        color: #88C0D0;
+    }
+    QPushButton {
+        background-color: #4C566A;
+        color: #ECEFF4;
+        border: 1px solid #434C5E;
+        padding: 8px 16px;
+        border-radius: 4px;
+    }
+    QPushButton:hover {
+        background-color: #5E81AC;
+    }
+    QPushButton:pressed {
+        background-color: #81A1C1;
+    }
+    QPushButton:disabled {
+        background-color: #3B4252;
+        color: #4C566A;
+    }
+    QComboBox {
+        background-color: #434C5E;
+        color: #ECEFF4;
+        border: 1px solid #4C566A;
+        padding: 5px;
+        border-radius: 4px;
+    }
+    QComboBox::drop-down {
+        border: none;
+    }
+    QComboBox::down-arrow {
+        image: url(down_arrow.png); /* A proper path or resource is needed */
+    }
+    QComboBox QAbstractItemView {
+        background-color: #3B4252;
+        selection-background-color: #5E81AC;
+        color: #ECEFF4;
+    }
+    QTextEdit {
+        background-color: #3B4252;
+        color: #D8DEE9;
+        border: 1px solid #4C566A;
+        border-radius: 4px;
+    }
+    QDialog {
+        background-color: #2E3440;
+    }
+    QMessageBox {
+        background-color: #3B4252;
+    }
+"""
 
-    msg = (
-        f"You are about to permanently ERASE all data on:\n\n"
-        f"{selected_display}\n\n"
-        f"This action cannot be undone!"
-    )
-    tk.Label(warning, text=msg, wraplength=350, justify="left", fg="red").pack(pady=10)
+class WipeWorker(QObject):
+    """
+    Runs the wipe process in a separate thread to keep the UI responsive.
+    """
+    state_changed = pyqtSignal(str, str)  # state_name, message
+    log_updated = pyqtSignal(str)
+    wipe_finished = pyqtSignal(bool, str, object) # success, message, final_data
 
-    selected_key = selected_display.split(" - ")[0]
+    def __init__(self, disk_id):
+        super().__init__()
+        self.disk_id = disk_id
+        self.is_running = True
 
-    btn_frame = tk.Frame(warning)
-    btn_frame.pack(pady=20)
+    @pyqtSlot()
+    def run_wipe(self):
+        global end_time
 
-    def on_continue():
+        def state_callback(state, line=None):
+            if state == "wiping":
+                self.state_changed.emit("wiping", f"Wiping {self.disk_id}...")
+            elif state == "logging":
+                self.log_updated.emit(line)
+            elif state == "finalizing":
+                self.state_changed.emit("finalizing", "Almost done, finalizing... This may take a while.")
+
+        success, message = (False, "")
+        try:
+            if os_name == 'Linux':
+                success, message = do_wipe.do_wipe_linux(self.disk_id, state_callback)
+            elif os_name == 'Windows':
+                success, message = do_wipe.do_wipe_windows(self.disk_id, state_callback)
+            elif os_name == 'Darwin':
+                success, message = do_wipe.do_wipe_darwin(self.disk_id, state_callback)
+            else:
+                success, message = do_wipe.do_wipe_android(self.disk_id, state_callback)
+            
+            end_time = datetime.datetime.now()
+
+        finally:
+            self.wipe_finished.emit(success, message, end_time)
+
+class AdvancedWipeDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Advanced Wipe Options")
+        self.setModal(True)
+        self.setMinimumWidth(350)
+        
+        self.selected_algorithm = "DoD 5220.22-M" # Default
+        
+        layout = QVBoxLayout(self)
+        
+        label = QLabel("Select Wipe Algorithm:")
+        layout.addWidget(label)
+        
+        self.algo_combo = QComboBox()
+        algorithms = ["DoD 5220.22-M", "Gutmann", "Random Overwrite", "Single Pass Zero"]
+        self.algo_combo.addItems(algorithms)
+        layout.addWidget(self.algo_combo)
+        
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def accept(self):
+        self.selected_algorithm = self.algo_combo.currentText()
+        print(f"Selected wipe algorithm: {self.selected_algorithm}")
+        super().accept()
+
+class WipeProgressDialog(QDialog):
+    def __init__(self, disk_id, display_name, fetched_data, parent=None):
+        super().__init__(parent)
+        self.disk_id = disk_id
+        self.display_name = display_name
+        self.final_wipe_data = None
+        self.fetched_data = fetched_data
+        
+        self.setWindowTitle("Wipe in Progress")
+        self.setModal(True)
+        self.setMinimumSize(500, 350)
+
+        # Main layout
+        layout = QVBoxLayout(self)
+        
+        # Status layout
+        status_layout = QHBoxLayout()
+        self.spinner_label = QLabel()
+        self.status_label = QLabel(f"Preparing to wipe {self.display_name}...")
+        self.spinner_animation = qta.Spin(self.spinner_label)
+        self.spinner_icon = qta.icon('fa5s.spinner', color='#5E81AC', animation=self.spinner_animation)
+        self.spinner_label.setPixmap(self.spinner_icon.pixmap(32, 32))
+        
+        status_layout.addWidget(self.spinner_label)
+        status_layout.addWidget(self.status_label)
+        status_layout.addStretch()
+        layout.addLayout(status_layout)
+        
+        # Log box
+        self.log_box = QTextEdit()
+        self.log_box.setReadOnly(True)
+        layout.addWidget(self.log_box)
+        
+        # Report button
+        self.report_button = QPushButton("Download Report")
+        self.report_button.setEnabled(False)
+        self.report_button.setIcon(qta.icon('fa5s.download', color='#ECEFF4'))
+        self.report_button.clicked.connect(self.download_report)
+        layout.addWidget(self.report_button)
+        
+        self.start_wipe_process()
+
+    def start_wipe_process(self):
+        self.thread = QThread()
+        self.worker = WipeWorker(self.disk_id)
+        self.worker.moveToThread(self.thread)
+        
+        self.worker.state_changed.connect(self.update_status)
+        self.worker.log_updated.connect(self.append_log)
+        self.worker.wipe_finished.connect(self.on_wipe_finished)
+        
+        self.thread.started.connect(self.worker.run_wipe)
+        self.thread.start()
+
+    def update_status(self, state, message):
+        self.status_label.setText(message)
+        if state == "wiping":
+            self.spinner_animation.start()
+        else: # finalizing or other states
+            self.spinner_animation.stop() # Stop spinning but icon remains
+    
+    def append_log(self, line):
+        self.log_box.append(line)
+    
+    def on_wipe_finished(self, success, message, end_time_obj):
+        global start_time
+        self.spinner_animation.stop()
+        self.thread.quit()
+        self.thread.wait()
+
+        self.final_wipe_data = {
+            "disk_id": self.disk_id,
+            "start_time": start_time.isoformat(),
+            "end_time": end_time_obj.isoformat(),
+            "duration": str(end_time_obj - start_time),
+            "status": "Success" if success else "Failed"
+        }
+
+        if self.fetched_data:
+            self.final_wipe_data.update(self.fetched_data)
+            print("final wiped data", self.final_wipe_data)
+        else:
+            print("No data is Fetched!!")
+            
+        self.report_button.setEnabled(True)
+
+        if success:
+            self.status_label.setText(message)
+            self.spinner_label.setPixmap(qta.icon('fa5s.check-circle', color='#A3BE8C').pixmap(32, 32))
+        else:
+            self.status_label.setText("Wipe Failed!")
+            self.spinner_label.setPixmap(qta.icon('fa5s.times-circle', color='#BF616A').pixmap(32, 32))
+            QMessageBox.critical(self, "Wipe Failed", message)
+
+    def download_report(self):
+        if self.final_wipe_data:
+            on_download_report(self.final_wipe_data)
+            QMessageBox.information(self, "Report", "Report Downloaded Successfully.")
+            self.close()
+
+class ShudhhiApp(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.init_ui()
+
+    def init_ui(self):
+        self.setWindowTitle("Shudhhi - Secure Disk Wiper")
+        self.setWindowIcon(qta.icon('fa5s.shield-alt', color='#81A1C1'))
+        self.setGeometry(100, 100, 450, 250)
+        
+        # Main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(15)
+
+        # Title
+        title_label = QLabel("Shudhhi Disk Wiper")
+        title_label.setObjectName("TitleLabel")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(title_label)
+
+        # OS Label
+        os_label = QLabel(f"Detected System: {os_name}")
+        os_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        os_label.setStyleSheet("color: #8FBCBB;")
+        main_layout.addWidget(os_label)
+        
+        main_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+
+        # Drive selection
+        self.combo = QComboBox()
+        if display_options:
+            self.combo.addItems(display_options)
+        else:
+            self.combo.addItem("No external disks detected")
+            self.combo.setEnabled(False)
+        self.combo.currentIndexChanged.connect(self.on_select)
+        main_layout.addWidget(self.combo)
+
+        # Buttons layout
+        buttons_layout = QHBoxLayout()
+        self.wipe_button = QPushButton("Wipe Now")
+        self.wipe_button.setIcon(qta.icon('fa5s.play-circle', color='#ECEFF4'))
+        self.wipe_button.clicked.connect(self.on_button_click)
+        if not display_options:
+            self.wipe_button.setEnabled(False)
+            
+        self.advanced_button = QPushButton("Advanced Options")
+        self.advanced_button.setIcon(qta.icon('fa5s.cogs', color='#ECEFF4'))
+        self.advanced_button.clicked.connect(self.on_click_advanced_options)
+        
+        buttons_layout.addWidget(self.wipe_button)
+        buttons_layout.addWidget(self.advanced_button)
+        main_layout.addLayout(buttons_layout)
+
+        self.on_select(0) # Trigger initial selection info print
+
+    def on_select(self, index):
+        selected_display = self.combo.currentText()
+        if " - " in selected_display:
+            selected_key = selected_display.split(" - ")[0]
+            selected_info = disk_info[selected_key]
+            print(f"You selected: {selected_key} - {selected_info}")
+
+    def on_click_advanced_options(self):
+        dialog = AdvancedWipeDialog(self)
+        dialog.exec()
+
+    def on_button_click(self):
+        selected_disk = self.combo.currentText()
+        if selected_disk and " - " in selected_disk:
+            self.show_warning(selected_disk)
+        else:
+            QMessageBox.warning(self, "No Selection", "Please select a valid disk first!")
+
+    def show_warning(self, selected_display):
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("WARNING!!!")
+        msg_box.setIcon(QMessageBox.Icon.Warning)
+        msg_box.setText(
+            f"You are about to permanently ERASE all data on:\n\n"
+            f"<b>{selected_display}</b>\n\n"
+            f"This action cannot be undone!"
+        )
+        msg_box.setInformativeText("Are you sure you want to proceed?")
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
+        msg_box.setDefaultButton(QMessageBox.StandardButton.Cancel)
+        
+        reply = msg_box.exec()
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.proceed_with_wipe(selected_display)
+            
+    def proceed_with_wipe(self, selected_display):
         global start_time, fetched_data
-        disk_id = name_to_id[selected_key]  
-        start_time = datetime.datetime.now() # storing the start datetime
-        print(disk_id)
-
-        # again we need to check the platform and call the things accordingly
-        # CHANGE THIS FOR EACH OS NOT CHANGING RIGHT NOW.
+        selected_key = selected_display.split(" - ")[0]
+        disk_id = name_to_id[selected_key]
+        start_time = datetime.datetime.now()
+        print(f"User chose CONTINUE — wiping {disk_id}...")
+        
+        fetched_data = None
         if os_name == 'Linux':
             fetched_data = get_disk_info_linux(disk_id)
         elif os_name == 'Windows':
@@ -146,161 +427,16 @@ def show_warning(selected_display):
             print("fetched data:", fetched_data)
         else:
             fetched_data = get_disk_info_android(disk_id)
-        
-        print(f"User chose CONTINUE — wiping {disk_id}...")
-        warning.destroy()
-        start_wipe_ui(disk_id, selected_display)
+            
+        progress_dialog = WipeProgressDialog(disk_id, selected_display, fetched_data, self)
+        progress_dialog.exec()
 
-    def on_cancel():
-        print("User chose CANCEL — returning to disk selection")
-        warning.destroy()
-
-    tk.Button(btn_frame, text="Cancel", command=on_cancel).grid(row=0, column=1, padx=10)
-    tk.Button(btn_frame, text="Yes, Erase", command=on_continue).grid(row=0, column=0, padx=10)
-
-
-def animate_spinner(spinner_label, step=0):
-    global animation_id
-    spinner_chars = ['|', '/', '-', '\\']
-    spinner_label.config(text=spinner_chars[step % len(spinner_chars)])
-    animation_id = root.after(100, animate_spinner, spinner_label, step + 1)
-
-def start_wipe_ui(disk_id, display_name):
-    progress_window = tk.Toplevel(root)
-    progress_window.title("Wipe in Progress")
-    progress_window.geometry("500x300")
-    progress_window.grab_set()
-    progress_window.attributes("-topmost", True)
-    
-    status_frame = tk.Frame(progress_window)
-    status_frame.pack(pady=10, padx=10, fill='x')
-
-    spinner_label = ttk.Label(status_frame, text="", font=("Courier", 16))
-    spinner_label.pack(side='left', padx=(0, 10))
-
-    status_label = ttk.Label(status_frame, text=f"Preparing to wipe {display_name}...")
-    status_label.pack(side='left')
-    
-    log_box = tk.Text(progress_window, height=8, width=60, state='disabled', bg='#f0f0f0', fg='black') # added black text for readability
-    log_box.pack(pady=10, padx=10, fill="both", expand=True)
-
-    report_button = tk.Button(progress_window, text="Download Report", state="disabled")
-    report_button.pack(pady=10)
-  
-    wipe_thread = threading.Thread(
-        target=run_wipe_in_thread,
-        args=(disk_id, status_label, spinner_label, log_box, report_button)
-    )
-    wipe_thread.start()
-
-
-def run_wipe_in_thread(disk_id, status_label, spinner_label, log_box, report_button):
-    global animation_id
-
-    def append_log(line):
-        log_box.config(state='normal')
-        log_box.insert(tk.END, line + "\n")
-        log_box.see(tk.END)
-        log_box.config(state='disabled')
-
-    def state_callback(state, line=None):
-        if state == "wiping":
-            root.after(0, animate_spinner, spinner_label)
-            root.after(0, lambda: status_label.config(text=f"Wiping {disk_id}..."))
-        elif state == "logging":
-            root.after(0, append_log, line)
-        elif state == "finalizing":
-            root.after(0, lambda: status_label.config(text="Almost done, finalizing... This may take a while."))
-
-    success, message = (False, "")
-    try:
-
-        # THIS IS THE FUNCTION CALL TO WIPE THE DATA
-
-        global end_time
-
-        if os_name == 'Linux':
-            success, message = do_wipe.do_wipe_linux(disk_id, state_callback)
-            end_time = datetime.datetime.now() # to store the end time of the process
-
-        elif os_name == 'Windows':
-            success, message = do_wipe.do_wipe_windows(disk_id, state_callback)
-            end_time = datetime.datetime.now() # to store the end time of the process
-
-        elif os_name == 'Darwin':
-            success, message = do_wipe.do_wipe_darwin(disk_id, state_callback)
-            end_time = datetime.datetime.now() # to store the end time of the process
-
-        else:
-            success, message = do_wipe.do_wipe_android(disk_id, state_callback)
-            end_time = datetime.datetime.now() # to store the end time of the process
-        
-    finally:
-        if animation_id:
-            root.after(0, root.after_cancel, animation_id)
-            animation_id = None
-
-    final_wipe_data = {
-        "disk_id": disk_id,
-        "start_time": start_time.isoformat(),
-        "end_time": end_time.isoformat(),
-        "duration": str(end_time - start_time),
-        "status": "Success" if success else "Failed"
-    }
-
-    if fetched_data:
-        final_wipe_data = final_wipe_data | fetched_data # merging the dictionaries
-        print("final wiped data",final_wipe_data)
-    else:
-        print("No data is Fetched!!")
-
-
-    report_button.config(state="normal", command=lambda: on_download_report(final_wipe_data))
-
-    if success:
-        root.after(0, lambda: spinner_label.config(text="✅"))
-        root.after(0, lambda: status_label.config(text=message))
-        # Auto-close the window after 5 seconds on success
-        # maybe add an option to close the window manually lets see
-        # root.after(10000, status_label.master.master.destroy)
-    else:
-        root.after(0, lambda: spinner_label.config(text="❌"))
-        root.after(0, lambda: status_label.config(text="Wipe Failed!"))
-        messagebox.showerror("Wipe Failed", message, parent=status_label.master.master)
-
-
-def on_button_click():
-    selected_disk = combo.get()
-    if selected_disk:
-        show_warning(selected_disk)
-    else:
-        messagebox.showwarning("No Selection", "Please select a disk first!")
-
-
-root.title("Shudhhi - Secure Disk Wiper")
-root.geometry("400x200")
-root.attributes("-topmost", True)
-
-oss = f"Detected System: {os_name}"
-lbl = tk.Label(root, text=oss)
-lbl.grid(row=0, column=0, padx=10, pady=10)
-
-button = tk.Button(root, text="Wipe Now", command=on_button_click)
-button.grid(row=2, column=0, pady=20)
-
-advanced_options = tk.Button(root, text="Advanced Options", command=on_click_advanced_options)
-advanced_options.grid(row=3, column=0, padx=0, pady=10, sticky="se")
-
-combo = ttk.Combobox(root, values=display_options, state="readonly", width = 36)
-combo.grid(row=1, column=0, padx=10, pady=10)
-
-combo.bind("<<ComboboxSelected>>", on_select)
-
-if display_options:  
-    combo.current(0)  
-else:
-    combo.set("No external disks detected")
-    button.config(state="disabled")
-
-root.mainloop()
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    app.setStyleSheet(STYLESHEET)
+    # The following line is for potential high-DPI scaling issues
+    # app.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling)
+    ex = ShudhhiApp()
+    ex.show()
+    sys.exit(app.exec())
 
