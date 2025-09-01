@@ -20,7 +20,9 @@ from system_os.android.android_disks import get_disks_android
 from wipe_disk import do_wipe
 from generate_report.generate_report import ReportGenerator
 from system_os.darwin.fetch_details_darwin import get_disk_info_darwin
-
+from system_os.windows.fetch_details_windows import get_disk_info_windows
+from system_os.linux.fetch_details_linux import get_disk_info_linux
+from system_os.android.fetch_details_android import get_disk_info_android
 
 os_name = platform.system() # this is used to store the name of the operating system
 print(f'Detected System: {os_name}')
@@ -67,7 +69,29 @@ root = tk.Tk()
 selected_key = ''
 
 def on_click_advanced_options():
-    return
+    # Create a new window for advanced options
+    adv_window = tk.Toplevel(root)
+    adv_window.title("Advanced Wipe Options")
+    adv_window.geometry("350x150")
+
+    adv_window.after(10, lambda: adv_window.attributes("-topmost", True))
+    adv_window.after(10, lambda: adv_window.grab_set())
+
+    algorithms = ["DoD 5220.22-M", "Gutmann", "Random Overwrite", "Single Pass Zero"]
+
+    tk.Label(adv_window, text="Select Wipe Algorithm:").pack(pady=10)
+    algo_var = tk.StringVar(value=algorithms[0])
+    algo_menu = ttk.Combobox(adv_window, textvariable=algo_var, values=algorithms, state="readonly", width=30)
+    algo_menu.pack(pady=5)
+
+    def on_select_algo():
+        selected_algo = algo_var.get()
+        print(f"Selected wipe algorithm: {selected_algo}")
+        # You can add logic here to use the selected algorithm
+        adv_window.destroy()
+
+    tk.Button(adv_window, text="Proceed", command=on_select_algo).pack(pady=10)
+
 
 def on_download_report(final_wipe_data):
     """
@@ -114,14 +138,14 @@ def show_warning(selected_display):
         # again we need to check the platform and call the things accordingly
         # CHANGE THIS FOR EACH OS NOT CHANGING RIGHT NOW.
         if os_name == 'Linux':
-            fetched_data = get_disk_info_darwin(disk_id)
+            fetched_data = get_disk_info_linux(disk_id)
         elif os_name == 'Windows':
-            fetched_data = get_disk_info_darwin(disk_id)
+            fetched_data = get_disk_info_windows(disk_id)
         elif os_name == 'Darwin':
             fetched_data = get_disk_info_darwin(disk_id)
             print("fetched data:", fetched_data)
         else:
-            fetched_data = get_disk_info_darwin(disk_id)
+            fetched_data = get_disk_info_android(disk_id)
         
         print(f"User chose CONTINUE — wiping {disk_id}...")
         warning.destroy()
@@ -263,6 +287,9 @@ lbl.grid(row=0, column=0, padx=10, pady=10)
 
 button = tk.Button(root, text="Wipe Now", command=on_button_click)
 button.grid(row=2, column=0, pady=20)
+
+advanced_options = tk.Button(root, text="Advanced Options", command=on_click_advanced_options)
+advanced_options.grid(row=3, column=0, padx=0, pady=10, sticky="se")
 
 combo = ttk.Combobox(root, values=display_options, state="readonly", width = 36)
 combo.grid(row=1, column=0, padx=10, pady=10)
