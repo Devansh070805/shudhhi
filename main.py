@@ -11,7 +11,6 @@ import re
 import subprocess
 import datetime
 import threading
-from tkinter import ttk, messagebox
 from system_os.linux.linux_disks import get_disks_linux
 from system_os.windows.windows_disks import get_disks_windows
 from system_os.darwin.darwin_disks import get_disks_darwin
