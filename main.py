@@ -22,11 +22,9 @@ from system_os.windows.fetch_details_windows import get_disk_info_windows
 from system_os.linux.fetch_details_linux import get_disk_info_linux
 from system_os.android.fetch_details_android import get_disk_info_android
 import sys
-from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
-                             QPushButton, QComboBox, QLabel, QMessageBox, QDialog, 
-                             QTextEdit, QDialogButtonBox, QSpacerItem, QSizePolicy)
-from PyQt6.QtCore import Qt, QThread, QObject, pyqtSignal, pyqtSlot
-from PyQt6.QtGui import QIcon, QFontDatabase
+from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,QPushButton, QComboBox, QLabel, QMessageBox, QDialog, QTextEdit, QDialogButtonBox, QSpacerItem, QSizePolicy)
+from PyQt6.QtCore import Qt, QThread, QObject, pyqtSignal, pyqtSlot, QSize
+from PyQt6.QtGui import QIcon, QFontDatabase, QMovie
 import qtawesome as qta
 
 
@@ -235,9 +233,22 @@ class WipeProgressDialog(QDialog):
         status_layout = QHBoxLayout()
         self.spinner_label = QLabel()
         self.status_label = QLabel(f"Preparing to wipe {self.display_name}...")
-        self.spinner_animation = qta.Spin(self.spinner_label)
-        self.spinner_icon = qta.icon('fa5s.spinner', color='#5E81AC', animation=self.spinner_animation)
-        self.spinner_label.setPixmap(self.spinner_icon.pixmap(32, 32))
+        
+        # self.spinner_animation = qta.Spin(self.spinner_label)
+        # self.spinner_icon = qta.icon('fa5s.spinner', color='#5E81AC', animation=self.spinner_animation)
+        # self.spinner_label.setPixmap(self.spinner_icon.pixmap(32, 32))
+
+        # --- QMovie Spinner Implementation ---
+        # NOTE: You must provide a 'spinner.gif' file in the same directory as the script.
+        # This file should be an animated GIF for the loading indicator.
+        self.movie = QMovie("spinner.gif")
+        if not self.movie.isValid():
+            print("Warning: 'spinner.gif' not found or is invalid. Spinner will not be shown.")
+            # Fallback to a static character if GIF is missing
+            self.spinner_label.setText("⏳")
+        else:
+            self.spinner_label.setMovie(self.movie)
+            self.movie.setScaledSize(QSize(32, 32))
         
         status_layout.addWidget(self.spinner_label)
         status_layout.addWidget(self.status_label)
@@ -267,22 +278,38 @@ class WipeProgressDialog(QDialog):
         self.worker.log_updated.connect(self.append_log)
         self.worker.wipe_finished.connect(self.on_wipe_finished)
         
+        # Start the GIF animation
+        if self.movie.isValid():
+            self.movie.start()
+
         self.thread.started.connect(self.worker.run_wipe)
         self.thread.start()
 
     def update_status(self, state, message):
         self.status_label.setText(message)
-        if state == "wiping":
-            self.spinner_animation.start()
-        else: # finalizing or other states
-            self.spinner_animation.stop() # Stop spinning but icon remains
+        # The QMovie is started once, so we no longer need to start it on state change
+        # if state == "wiping":
+        #     self.spinner_animation.start()
+        # no else block needed becasue insteda we just display another static icon instead
+        # else: # finalizing or other states
+        #     self.spinner_animation.stop() # Stop spinning but icon remains
     
     def append_log(self, line):
         self.log_box.append(line)
     
     def on_wipe_finished(self, success, message, end_time_obj):
         global start_time
-        self.spinner_animation.stop()
+        # --- FIX ---
+        # The following line was the likely cause of an AttributeError.
+        # The animation is stopped implicitly when the spinner icon is replaced
+        # by a static icon (check or cross) below. Calling .stop() is redundant
+        # and can cause an error. This logic follows your own comment in update_status.
+        # self.spinner_animation.stop()
+        
+        # Stop the QMovie animation
+        if self.movie.isValid():
+            self.movie.stop()
+
         self.thread.quit()
         self.thread.wait()
 
