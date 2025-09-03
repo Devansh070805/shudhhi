@@ -22,9 +22,9 @@ from system_os.windows.fetch_details_windows import get_disk_info_windows
 from system_os.linux.fetch_details_linux import get_disk_info_linux
 from system_os.android.fetch_details_android import get_disk_info_android
 import sys
-from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,QPushButton, QComboBox, QLabel, QMessageBox, QDialog, QTextEdit, QDialogButtonBox, QSpacerItem, QSizePolicy)
+from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,QPushButton, QComboBox, QLabel, QMessageBox, QDialog, QTextEdit, QDialogButtonBox, QSpacerItem, QSizePolicy, QFrame)
 from PyQt6.QtCore import Qt, QThread, QObject, pyqtSignal, pyqtSlot, QSize
-from PyQt6.QtGui import QIcon, QFontDatabase, QMovie
+from PyQt6.QtGui import QIcon, QFontDatabase, QMovie, QFont, QPixmap
 import qtawesome as qta
 
 
@@ -46,10 +46,7 @@ else:
 # disk_info -> {disk_name: disk_size}
 # name_to_id -> {disk_name: disk_id}
 
-# display_options = ["Select Drive to Proceed:"]
 display_options = [f"{k} - {v}" for k, v in disk_info.items()]
-# if not display_options:
-#     display_options = ["No external drives detected"]
 
 '''
 VARIABLES FOR THE REPORT GENERATOR 
@@ -75,72 +72,143 @@ def on_download_report(final_wipe_data):
     print(json.dumps(final_wipe_data, indent=2))
     report_gen = ReportGenerator(config_path="config.json")
     report_gen.generate_pdf(final_wipe_data)
-    # The message box is now shown from the PyQt UI thread
-    # messagebox.showinfo("Report", "Report Downloaded Successfully.") # add if else here
 
 
 # --- STYLESHEET for a modern look ---
 STYLESHEET = """
-    QWidget {
-        background-color: #2E3440;
-        color: #D8DEE9;
-        font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-        font-size: 11pt;
+    * {
+        font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
     }
-    QLabel {
-        color: #ECEFF4;
+    
+    /* Main Window and Dialog Styling */
+    QWidget, QDialog {
+        background-color: #FFFFFF;
+        color: #1A202C; /* Dark Gray for text */
     }
-    QLabel#TitleLabel {
-        font-size: 18pt;
+
+    /* Brand Name Label */
+    QLabel#BrandName {
+        font-size: 26pt;
+        font-weight: 600; /* Semi-bold */
+        color: #2D3748;
+    }
+
+    /* Main Action Title Label */
+    QLabel#ActionTitle {
+        font-size: 22pt;
+        font-weight: 500; /* Medium */
+        color: #2D3748;
+        padding-top: 20px;
+    }
+    
+    /* Subtitle/Informational Label */
+    QLabel#InfoLabel {
+        font-size: 12pt;
+        color: #718096; /* Medium Gray */
+        padding-bottom: 20px;
+    }
+
+    /* Primary Action Button (Wipe Now) */
+    QPushButton#WipeButton {
+        background-color: #4299E1; /* Bright Blue */
+        color: #FFFFFF;
+        font-size: 14pt;
         font-weight: bold;
-        color: #88C0D0;
+        padding: 10px 36px;
+        border-radius: 10px;
+        border: none;
+        min-width: 400px;
     }
+    QPushButton#WipeButton:hover {
+        background-color: #3182CE; /* Darker Blue */
+    }
+    QPushButton#WipeButton:pressed {
+        background-color: #2B6CB0; /* Even Darker Blue */
+    }
+    QPushButton#WipeButton:disabled {
+        background-color: #E2E8F0; /* Light Gray */
+        color: #A0AEC0; /* Medium Gray */
+    }
+
+    /* Secondary Link-style Button (Advanced Options) */
+    QPushButton#AdvancedButton {
+        background-color: transparent;
+        color: #4A5568; /* Dark Gray */
+        font-size: 11pt;
+        font-weight: 500;
+        border: none;
+        padding: 8px;
+    }
+    QPushButton#AdvancedButton:hover {
+        color: #2B6CB0;
+        text-decoration: underline;
+    }
+    QPushButton#AdvancedButton:pressed {
+        color: #1A202C;
+    }
+
+    /* General Buttons (in dialogs) */
     QPushButton {
-        background-color: #4C566A;
-        color: #ECEFF4;
-        border: 1px solid #434C5E;
-        padding: 8px 16px;
-        border-radius: 4px;
+        background-color: #EDF2F7;
+        color: #4A5568;
+        font-size: 11pt;
+        font-weight: 500;
+        padding: 10px 20px;
+        border-radius: 8px;
+        border: 1px solid #E2E8F0;
     }
-    QPushButton:hover {
-        background-color: #5E81AC;
+     QPushButton:hover {
+        background-color: #E2E8F0;
+        border-color: #CBD5E0;
     }
     QPushButton:pressed {
-        background-color: #81A1C1;
+        background-color: #CBD5E0;
     }
-    QPushButton:disabled {
-        background-color: #3B4252;
-        color: #4C566A;
-    }
+    
+    /* Dropdown Menu (ComboBox) */
     QComboBox {
-        background-color: #434C5E;
-        color: #ECEFF4;
-        border: 1px solid #4C566A;
-        padding: 5px;
-        border-radius: 4px;
+        background-color: #FFFFFF;
+        color: #2D3748;
+        border: 1px solid #CBD5E0;
+        padding: 15px;
+        border-radius: 10px;
+        font-size: 12pt;
     }
     QComboBox::drop-down {
         border: none;
+        width: 25px;
+        padding-right: 10px;
     }
     QComboBox::down-arrow {
-        image: url(down_arrow.png); /* A proper path or resource is needed */
+        image: url(down_arrow_icon.png); /* You need to provide this icon */
     }
     QComboBox QAbstractItemView {
-        background-color: #3B4252;
-        selection-background-color: #5E81AC;
-        color: #ECEFF4;
+        background-color: #FFFFFF;
+        selection-background-color: #EBF8FF;
+        selection-color: #2D3748;
+        border: 1px solid #E2E8F0;
+        outline: 0px;
+        padding: 5px;
+        font-size: 11pt;
     }
+
+    /* Log Box */
     QTextEdit {
-        background-color: #3B4252;
-        color: #D8DEE9;
-        border: 1px solid #4C566A;
-        border-radius: 4px;
+        background-color: #F7FAFC; /* Very Light Gray */
+        color: #4A5568;
+        border: 1px solid #E2E8F0;
+        border-radius: 8px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 10pt;
     }
-    QDialog {
-        background-color: #2E3440;
-    }
+
+    /* Message Box Styling */
     QMessageBox {
-        background-color: #3B4252;
+        background-color: #FFFFFF;
+    }
+    QMessageBox QLabel {
+        color: #2D3748;
+        font-size: 11pt;
     }
 """
 
@@ -159,8 +227,6 @@ class WipeWorker(QObject):
 
     @pyqtSlot()
     def run_wipe(self):
-        global end_time
-
         def state_callback(state, line=None):
             if state == "wiping":
                 self.state_changed.emit("wiping", f"Wiping {self.disk_id}...")
@@ -170,6 +236,7 @@ class WipeWorker(QObject):
                 self.state_changed.emit("finalizing", "Almost done, finalizing... This may take a while.")
 
         success, message = (False, "")
+        end_time_obj = None # Initialize to None for clarity
         try:
             if os_name == 'Linux':
                 success, message = do_wipe.do_wipe_linux(self.disk_id, state_callback)
@@ -179,24 +246,27 @@ class WipeWorker(QObject):
                 success, message = do_wipe.do_wipe_darwin(self.disk_id, state_callback)
             else:
                 success, message = do_wipe.do_wipe_android(self.disk_id, state_callback)
-            
-            end_time = datetime.datetime.now()
-
         finally:
-            self.wipe_finished.emit(success, message, end_time)
+            # ✅ **FIX:** Set the end time HERE, so it always has a value.
+            end_time_obj = datetime.datetime.now() 
+            self.wipe_finished.emit(success, message, end_time_obj)
+
 
 class AdvancedWipeDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Advanced Wipe Options")
         self.setModal(True)
-        self.setMinimumWidth(350)
+        self.setMinimumWidth(400)
         
         self.selected_algorithm = "DoD 5220.22-M" # Default
         
         layout = QVBoxLayout(self)
-        
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
+
         label = QLabel("Select Wipe Algorithm:")
+        label.setFont(QFont("Inter", 11))
         layout.addWidget(label)
         
         self.algo_combo = QComboBox()
@@ -224,31 +294,26 @@ class WipeProgressDialog(QDialog):
         
         self.setWindowTitle("Wipe in Progress")
         self.setModal(True)
-        self.setMinimumSize(500, 350)
+        self.setMinimumSize(600, 450)
 
         # Main layout
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(25, 25, 25, 25)
         
         # Status layout
         status_layout = QHBoxLayout()
         self.spinner_label = QLabel()
         self.status_label = QLabel(f"Preparing to wipe {self.display_name}...")
+        self.status_label.setFont(QFont("Inter", 12))
         
-        # self.spinner_animation = qta.Spin(self.spinner_label)
-        # self.spinner_icon = qta.icon('fa5s.spinner', color='#5E81AC', animation=self.spinner_animation)
-        # self.spinner_label.setPixmap(self.spinner_icon.pixmap(32, 32))
-
         # --- QMovie Spinner Implementation ---
-        # NOTE: You must provide a 'spinner.gif' file in the same directory as the script.
-        # This file should be an animated GIF for the loading indicator.
         self.movie = QMovie("spinner.gif")
         if not self.movie.isValid():
             print("Warning: 'spinner.gif' not found or is invalid. Spinner will not be shown.")
-            # Fallback to a static character if GIF is missing
             self.spinner_label.setText("⏳")
         else:
             self.spinner_label.setMovie(self.movie)
-            self.movie.setScaledSize(QSize(32, 32))
+            self.movie.setScaledSize(QSize(40, 40))
         
         status_layout.addWidget(self.spinner_label)
         status_layout.addWidget(self.status_label)
@@ -263,9 +328,9 @@ class WipeProgressDialog(QDialog):
         # Report button
         self.report_button = QPushButton("Download Report")
         self.report_button.setEnabled(False)
-        self.report_button.setIcon(qta.icon('fa5s.download', color='#ECEFF4'))
         self.report_button.clicked.connect(self.download_report)
-        layout.addWidget(self.report_button)
+
+        layout.addWidget(self.report_button, 0, Qt.AlignmentFlag.AlignCenter)
         
         self.start_wipe_process()
 
@@ -278,7 +343,6 @@ class WipeProgressDialog(QDialog):
         self.worker.log_updated.connect(self.append_log)
         self.worker.wipe_finished.connect(self.on_wipe_finished)
         
-        # Start the GIF animation
         if self.movie.isValid():
             self.movie.start()
 
@@ -287,26 +351,12 @@ class WipeProgressDialog(QDialog):
 
     def update_status(self, state, message):
         self.status_label.setText(message)
-        # The QMovie is started once, so we no longer need to start it on state change
-        # if state == "wiping":
-        #     self.spinner_animation.start()
-        # no else block needed becasue insteda we just display another static icon instead
-        # else: # finalizing or other states
-        #     self.spinner_animation.stop() # Stop spinning but icon remains
     
     def append_log(self, line):
         self.log_box.append(line)
     
     def on_wipe_finished(self, success, message, end_time_obj):
         global start_time
-        # --- FIX ---
-        # The following line was the likely cause of an AttributeError.
-        # The animation is stopped implicitly when the spinner icon is replaced
-        # by a static icon (check or cross) below. Calling .stop() is redundant
-        # and can cause an error. This logic follows your own comment in update_status.
-        # self.spinner_animation.stop()
-        
-        # Stop the QMovie animation
         if self.movie.isValid():
             self.movie.stop()
 
@@ -323,7 +373,6 @@ class WipeProgressDialog(QDialog):
 
         if self.fetched_data:
             self.final_wipe_data.update(self.fetched_data)
-            print("final wiped data", self.final_wipe_data)
         else:
             print("No data is Fetched!!")
             
@@ -331,10 +380,12 @@ class WipeProgressDialog(QDialog):
 
         if success:
             self.status_label.setText(message)
-            self.spinner_label.setPixmap(qta.icon('fa5s.check-circle', color='#A3BE8C').pixmap(32, 32))
+            success_icon = qta.icon('fa5s.check-circle', color='#48BB78') # Green
+            self.spinner_label.setPixmap(success_icon.pixmap(40, 40))
         else:
             self.status_label.setText("Wipe Failed!")
-            self.spinner_label.setPixmap(qta.icon('fa5s.times-circle', color='#BF616A').pixmap(32, 32))
+            fail_icon = qta.icon('fa5s.times-circle', color='#F56565') # Red
+            self.spinner_label.setPixmap(fail_icon.pixmap(40, 40))
             QMessageBox.critical(self, "Wipe Failed", message)
 
     def download_report(self):
@@ -350,55 +401,94 @@ class ShudhhiApp(QWidget):
 
     def init_ui(self):
         self.setWindowTitle("Shudhhi - Secure Disk Wiper")
-        self.setWindowIcon(qta.icon('fa5s.shield-alt', color='#81A1C1'))
-        self.setGeometry(100, 100, 450, 250)
+        self.setMinimumSize(800, 600)
         
-        # Main layout
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(15)
+        # --- Header Section ---
+        header_widget = QWidget()
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(20, 15, 20, 15)
 
-        # Title
-        title_label = QLabel("Shudhhi Disk Wiper")
-        title_label.setObjectName("TitleLabel")
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(title_label)
-
-        # OS Label
-        os_label = QLabel(f"Detected System: {os_name}")
-        os_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        os_label.setStyleSheet("color: #8FBCBB;")
-        main_layout.addWidget(os_label)
+        logo_label = QLabel()
+        logo_pixmap = QPixmap("logo.png")
+        if not logo_pixmap.isNull():
+            logo_pixmap = logo_pixmap.scaled(40, 40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            logo_label.setPixmap(logo_pixmap)
         
-        main_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        brand_label = QLabel("Shudhhi")
+        brand_label.setObjectName("BrandName")
 
-        # Drive selection
+        os_label = QLabel(f"System: {os_name}")
+        os_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        os_label.setObjectName("InfoLabel")
+
+        header_layout.addWidget(logo_label)
+        header_layout.addWidget(brand_label)
+        header_layout.addStretch()
+        header_layout.addWidget(os_label)
+
+        # --- Main Content Section ---
+        main_content_widget = QWidget()
+        main_content_layout = QVBoxLayout(main_content_widget)
+        main_content_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_content_layout.setContentsMargins(80, 20, 80, 50)
+        main_content_layout.setSpacing(15)
+
+        action_title = QLabel("Securely Erase Your Drive")
+        action_title.setObjectName("ActionTitle")
+        action_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        info_label = QLabel("Select a drive from the list below to permanently wipe all its data. This action is irreversible.")
+        info_label.setObjectName("InfoLabel")
+        info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        info_label.setWordWrap(True)
+        
         self.combo = QComboBox()
+        self.combo.setMinimumHeight(50)
         if display_options:
             self.combo.addItems(display_options)
         else:
             self.combo.addItem("No external disks detected")
             self.combo.setEnabled(False)
         self.combo.currentIndexChanged.connect(self.on_select)
-        main_layout.addWidget(self.combo)
+        
+        main_content_layout.addWidget(action_title)
+        main_content_layout.addWidget(info_label)
+        main_content_layout.addWidget(self.combo)
+        main_content_layout.addStretch(1)
 
-        # Buttons layout
-        buttons_layout = QHBoxLayout()
+        # --- Footer/Actions Section ---
         self.wipe_button = QPushButton("Wipe Now")
-        self.wipe_button.setIcon(qta.icon('fa5s.play-circle', color='#ECEFF4'))
+        self.wipe_button.setObjectName("WipeButton")
+        self.wipe_button.setIcon(qta.icon('fa5s.eraser', color='white'))
+        self.wipe_button.setIconSize(QSize(22, 22))
         self.wipe_button.clicked.connect(self.on_button_click)
         if not display_options:
             self.wipe_button.setEnabled(False)
-            
-        self.advanced_button = QPushButton("Advanced Options")
-        self.advanced_button.setIcon(qta.icon('fa5s.cogs', color='#ECEFF4'))
-        self.advanced_button.clicked.connect(self.on_click_advanced_options)
-        
-        buttons_layout.addWidget(self.wipe_button)
-        buttons_layout.addWidget(self.advanced_button)
-        main_layout.addLayout(buttons_layout)
 
-        self.on_select(0) # Trigger initial selection info print
+        self.advanced_button = QPushButton("Advanced Options")
+        self.advanced_button.setObjectName("AdvancedButton")
+        self.advanced_button.clicked.connect(self.on_click_advanced_options)
+
+        main_content_layout.addWidget(self.wipe_button, 0, Qt.AlignmentFlag.AlignCenter)
+        main_content_layout.addWidget(self.advanced_button, 0, Qt.AlignmentFlag.AlignCenter)
+        main_content_layout.addStretch(2)
+
+
+        # --- Final Assembly ---
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        line.setStyleSheet("color: #E2E8F0;")
+
+        main_layout.addWidget(header_widget)
+        main_layout.addWidget(line)
+        main_layout.addWidget(main_content_widget, 1)
+
+        self.on_select(0)
 
     def on_select(self, index):
         selected_display = self.combo.currentText()
@@ -420,17 +510,21 @@ class ShudhhiApp(QWidget):
 
     def show_warning(self, selected_display):
         msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("WARNING!!!")
+        msg_box.setWindowTitle("Confirm Permanent Deletion")
         msg_box.setIcon(QMessageBox.Icon.Warning)
         msg_box.setText(
-            f"You are about to permanently ERASE all data on:\n\n"
+            f"You are about to permanently erase all data on:\n\n"
             f"<b>{selected_display}</b>\n\n"
-            f"This action cannot be undone!"
+            f"This action cannot be undone."
         )
-        msg_box.setInformativeText("Are you sure you want to proceed?")
+        msg_box.setInformativeText("Are you absolutely sure you want to proceed?")
         msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
         msg_box.setDefaultButton(QMessageBox.StandardButton.Cancel)
         
+        yes_button = msg_box.button(QMessageBox.StandardButton.Yes)
+        yes_button.setText("Yes, Erase")
+        yes_button.setStyleSheet("background-color: #E53E3E; color: white; border: none; padding: 8px 16px; border-radius: 6px;")
+
         reply = msg_box.exec()
 
         if reply == QMessageBox.StandardButton.Yes:
@@ -459,10 +553,8 @@ class ShudhhiApp(QWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    QFontDatabase.addApplicationFont("Inter-Regular.ttf") 
     app.setStyleSheet(STYLESHEET)
-    # The following line is for potential high-DPI scaling issues
-    # app.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling)
     ex = ShudhhiApp()
-    ex.show()
+    ex.show()   
     sys.exit(app.exec())
-
