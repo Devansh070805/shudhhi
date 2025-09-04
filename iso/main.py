@@ -1,10 +1,11 @@
-# this script is used to detect the mouted drives and storages
+# THIS IS THE MAIN.PY FILE FOR THE ISO BUILD. THIS WILL BE MADE INTO A SEPARATE FOLDER LATER ON.
 
 '''
 since this is a cross-platform software and we need to access areas restricted by HPA/DCO, i am writing os specific scripts 
 to get the information we need
 
 '''
+import os
 import platform
 import json
 import re
@@ -40,6 +41,11 @@ else:
     disk_info, name_to_id = get_disks_android()
 
     # need to handle the else case
+    
+'''
+FOR SOLVING THE ABSOLUTE PATH PROBLEM IN THE BOOTABLE SYSTEM WE WOULD BUILD ON THE BASE PATH
+'''
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # REQUIREMENTS:
 # disk_info -> {disk_name: disk_size}
@@ -295,7 +301,8 @@ class WipeProgressDialog(QDialog):
         self.status_label.setFont(QFont("Inter", 12))
         
         # --- QMovie Spinner Implementation ---
-        self.movie = QMovie("spinner.gif")
+        spinner_path = os.path.join(BASE_DIR, "spinner.gif")
+        self.movie = QMovie(spinner_path)
         if not self.movie.isValid():
             print("Warning: 'spinner.gif' not found or is invalid. Spinner will not be shown.")
             self.spinner_label.setText("⏳")
@@ -383,7 +390,8 @@ class ShudhhiApp(QWidget):
         header_layout.setContentsMargins(20, 15, 20, 15)
 
         logo_label = QLabel()
-        logo_pixmap = QPixmap("logo.png")
+        logo_path = os.path.join(BASE_DIR, "logo.png")
+        logo_pixmap = QPixmap(logo_path)
         if not logo_pixmap.isNull():
             logo_pixmap = logo_pixmap.scaled(40, 40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
             logo_label.setPixmap(logo_pixmap)
@@ -530,5 +538,5 @@ if __name__ == '__main__':
     QFontDatabase.addApplicationFont("Inter-Regular.ttf") 
     app.setStyleSheet(STYLESHEET)
     ex = ShudhhiApp()
-    ex.show()
+    ex.showFullScreen()
     sys.exit(app.exec())
