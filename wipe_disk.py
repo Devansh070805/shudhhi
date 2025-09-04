@@ -7,7 +7,6 @@ import tempfile
 
 class do_wipe:
     def do_wipe_darwin(disk_identifier: str, state_callback=None):
-        return True, "yaya"
         try:
             subprocess.run(["diskutil", "unmountDisk", disk_identifier], check=True, capture_output=True)
             cmd = ["diskutil", "secureErase", "0", disk_identifier]
