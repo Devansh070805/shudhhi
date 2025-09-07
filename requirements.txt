@@ -1,2 +1,7 @@
 reportlab
 PyQt6
+qtawesome
+requests
+Pyrebase4
+python-dotenv
+firebase
