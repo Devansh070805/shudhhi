@@ -42,14 +42,21 @@ else:
 
     # need to handle the else case
     
+    
 '''
 FOR SOLVING THE ABSOLUTE PATH PROBLEM IN THE BOOTABLE SYSTEM WE WOULD BUILD ON THE BASE PATH
 '''
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# this is the variable to hold the method selected by the user 
+selectedWipeMethod = "DoD 5220.22-M"
+
 # REQUIREMENTS:
 # disk_info -> {disk_name: disk_size}
 # name_to_id -> {disk_name: disk_id}
+
+# this is the variable to hold the method selected by the user 
+selectedWipeMethod = "Single Pass Zero"
 
 display_options = [f"{k} - {v}" for k, v in disk_info.items()]
 
@@ -221,27 +228,49 @@ class WipeWorker(QObject):
 
     @pyqtSlot()
     def run_wipe(self):
-        def state_callback(state, line=None):
+        def state_callback(state, **kwargs):
             if state == "wiping":
-                self.state_changed.emit("wiping", f"Wiping {self.disk_id}...")
+                # Now uses .get("message", ...) to safely access the new data
+                self.state_changed.emit("wiping", kwargs.get("message", f"Wiping {self.disk_id}..."))
             elif state == "logging":
-                self.log_updated.emit(line)
-            elif state == "finalizing":
-                self.state_changed.emit("finalizing", "Almost done, finalizing... This may take a while.")
+                self.log_updated.emit(kwargs.get("line", ""))
+            # This handles the 'progress' updates for multi-pass wipes
+            elif state == "progress":
+                msg = f"Pass {kwargs.get('current', '?')}/{kwargs.get('total', '?')}: {kwargs.get('message', '')}"
+                self.state_changed.emit("progress", msg)
 
         success, message = (False, "")
         end_time_obj = None # Initialize to None for clarity
         try:
+            '''
+            HERE WE NEED TO IMPLEMENT THE DIFFERENT METHDOS ON THE BASIS OF THE SELECTED ALGORITHM
+             algorithms = ["DoD 5220.22-M", "Gutmann", "Random Overwrite", "Single Pass Zero", "hdparm"]
+
+             MAYBE CHANGE THIS TO MATCH CASE LATER AND THEN ADD SPECIAL CHECKS AND HANDLE ELSE BLOCKS
+            '''
+
+            # THIS WILL ALWAYS BE TRUE, CHANGE THSI LATER ON.
+
             if os_name == 'Linux':
-                success, message = do_wipe.do_wipe_linux(self.disk_id, state_callback)
-            elif os_name == 'Windows':
-                success, message = do_wipe.do_wipe_windows(self.disk_id, state_callback)
-            elif os_name == 'Darwin':
-                success, message = do_wipe.do_wipe_darwin(self.disk_id, state_callback)
+
+                if selectedWipeMethod == "DoD 5220.22-M":
+                    success, message = do_wipe.DoD_5220_22M.for_linux(self.disk_id, state_callback)
+
+                if selectedWipeMethod == "Gutmann":
+                    success, message = do_wipe.Gutmann.for_linux(self.disk_id, state_callback)
+
+                if selectedWipeMethod == "Single Pass Zero":
+                    success, message = do_wipe.FillZeros.for_linux(self.disk_id, state_callback)
+                
+                if selectedWipeMethod == "hdparm":
+                    success, message = do_wipe.HDParm.for_linux(self.disk_id, state_callback)
             else:
-                success, message = do_wipe.do_wipe_android(self.disk_id, state_callback)
+                # ADD THE METHODS FOR ANDROID LATER
+                #success, message = do_wipe.do_wipe_android(self.disk_id, state_callback)
+                print("hehehe")
         finally:
             # ✅ **FIX:** Set the end time HERE, so it always has a value.
+            print(message)
             end_time_obj = datetime.datetime.now() 
             self.wipe_finished.emit(success, message, end_time_obj)
 
@@ -264,7 +293,7 @@ class AdvancedWipeDialog(QDialog):
         layout.addWidget(label)
         
         self.algo_combo = QComboBox()
-        algorithms = ["DoD 5220.22-M", "Gutmann", "Random Overwrite", "Single Pass Zero"]
+        algorithms = ["DoD 5220.22-M", "Gutmann", "Single Pass Zero", "hdparm"]
         self.algo_combo.addItems(algorithms)
         layout.addWidget(self.algo_combo)
         
@@ -274,8 +303,12 @@ class AdvancedWipeDialog(QDialog):
         layout.addWidget(button_box)
 
     def accept(self):
+        global selectedWipeMethod
         self.selected_algorithm = self.algo_combo.currentText()
+        # i will write the hdparm code here
+        selectedWipeMethod = self.selected_algorithm
         print(f"Selected wipe algorithm: {self.selected_algorithm}")
+        
         super().accept()
 
 class WipeProgressDialog(QDialog):
@@ -496,7 +529,7 @@ class ShudhhiApp(QWidget):
         msg_box.setIcon(QMessageBox.Icon.Warning)
         msg_box.setText(
             f"You are about to permanently erase all data on:\n\n"
-            f"<b>{selected_display}</b>\n\n"
+            f"{selected_display}\n\n"
             f"This action cannot be undone."
         )
         msg_box.setInformativeText("Are you absolutely sure you want to proceed?")
