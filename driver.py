@@ -25,31 +25,44 @@ import sys
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,QPushButton, QComboBox, QLabel, QMessageBox, QDialog, QTextEdit, QDialogButtonBox, QSpacerItem, QSizePolicy, QFrame)
 from PyQt6.QtCore import Qt, QThread, QObject, pyqtSignal, pyqtSlot, QSize
 from PyQt6.QtGui import QIcon, QFontDatabase, QMovie, QFont, QPixmap
+from device_watcher import DriveWatcher 
 import qtawesome as qta
 
 
-os_name = platform.system() # this is used to store the name of the operating system
+# --- Global variables that will be updated ---
+os_name = platform.system()
+disk_info = {}
+name_to_id = {}
+display_options = []
 print(f'Detected System: {os_name}')
 
-if os_name == 'Linux':
-    disk_info, name_to_id = get_disks_linux()
-elif os_name == 'Windows':
-    disk_info, name_to_id = get_disks_windows()
-elif os_name == 'Darwin':
-    disk_info, name_to_id  = get_disks_darwin()
-else:
-    disk_info, name_to_id = get_disks_android()
+def refresh_disk_info():
+    """
+    Scans the system for disks and updates the global variables.
+    This function is called on startup and whenever a drive change is detected.
+    """
+    global disk_info, name_to_id, display_options
+    
+    print(f"Refreshing disk list for {os_name}...")
 
-    # need to handle the else case
+    if os_name == 'Linux':
+        disk_info, name_to_id = get_disks_linux()
+    elif os_name == 'Windows':
+        disk_info, name_to_id = get_disks_windows()
+    elif os_name == 'Darwin':
+        disk_info, name_to_id = get_disks_darwin()
+    else:
+        disk_info, name_to_id = get_disks_android()
+    
+    # Re-create the display options from the new disk_info
+    display_options = [f"{k} - {v}" for k, v in disk_info.items()]
+    print(f"Disk list refreshed. Found: {display_options}")
 
-# REQUIREMENTS:
-# disk_info -> {disk_name: disk_size}
-# name_to_id -> {disk_name: disk_id}
+# --- Initial scan on startup ---
+refresh_disk_info()
 
 # this is the variable to hold the method selected by the user 
 selectedWipeMethod = "DoD 5220.22-M"
-
-display_options = [f"{k} - {v}" for k, v in disk_info.items()]
 
 '''
 VARIABLES FOR THE REPORT GENERATOR 
@@ -449,10 +462,11 @@ class ShudhhiApp(QWidget):
     def __init__(self):
         super().__init__()
         self.init_ui()
+        self.setup_device_watcher()
 
     def init_ui(self):
         self.setWindowTitle("Shudhhi - Secure Disk Wiper")
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(1000, 600)
         
         # --- Header Section ---
         header_widget = QWidget()
@@ -602,11 +616,58 @@ class ShudhhiApp(QWidget):
         progress_dialog = WipeProgressDialog(disk_id, selected_display, fetched_data, self)
         progress_dialog.exec()
 
-# if __name__ == '__main__':
-#     app = QApplication(sys.argv)
-#     QFontDatabase.addApplicationFont("Inter-Regular.ttf") 
-#     app.setStyleSheet(STYLESHEET)
-#     ex = ShudhhiApp()
-#     ex.show()   
-#     sys.exit(app.exec())
+    def setup_device_watcher(self):
+        """Creates and starts the background thread for monitoring disk changes."""
+        self.device_watcher = DriveWatcher()
+        
+        # Connect the signal from the watcher to our new handler slot
+        self.device_watcher.drives_changed.connect(self.handle_drive_change)
+        
+        # Start the background thread
+        self.device_watcher.start()
 
+    @pyqtSlot(list)
+    def handle_drive_change(self, detected_drives):
+        """
+        This slot is triggered when the DriveWatcher detects a change.
+        It re-scans for disks and updates the UI dropdown.
+        """
+        print("Signal received from watcher. Re-evaluating disk list.")
+        
+        # 1. Get the currently selected text to preserve it if possible
+        current_selection = self.combo.currentText()
+
+        # 2. Re-run the full disk scan to update global variables
+        refresh_disk_info()
+        
+        # 3. Clear and update the UI dropdown (self.combo)
+        self.combo.clear()
+        
+        if display_options:
+            self.combo.addItems(display_options)
+            # If the previously selected drive is still present, re-select it
+            if current_selection in display_options:
+                self.combo.setCurrentText(current_selection)
+            
+            # Ensure buttons are in the correct state
+            self.combo.setEnabled(True)
+            self.wipe_button.setEnabled(True)
+        else:
+            self.combo.addItem("No external disks detected")
+            self.combo.setEnabled(False)
+            self.wipe_button.setEnabled(False)
+
+    def closeEvent(self, event):
+        """Stops the watcher thread when the main window is closed."""
+        print("Closing application, stopping drive watcher...")
+        self.device_watcher.stop()
+        self.device_watcher.wait() # Wait for the thread to finish
+        event.accept()
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    QFontDatabase.addApplicationFont("Inter-Regular.ttf") 
+    app.setStyleSheet(STYLESHEET)
+    ex = ShudhhiApp()
+    ex.show()   
+    sys.exit(app.exec())
