@@ -1,60 +1,18 @@
 import sys
-import time
+import os
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
-    QPushButton, QCheckBox, QFrame, QStackedWidget, QMessageBox, QTextEdit,
-    QGridLayout
+    QPushButton, QCheckBox, QFrame, QStackedWidget, QMessageBox, QTextEdit, # QFrame is already imported
+    QGridLayout,QSizePolicy, QVBoxLayout
 )
-from PyQt6.QtGui import QFont, QPixmap, QCursor, QPainter, QBrush, QColor, QPainterPath
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPropertyAnimation, QRect, QEasingCurve, QRectF, QSize
+from PyQt6.QtGui import QFont, QCursor
+from PyQt6.QtCore import Qt, pyqtSignal, QUrl
+# --- Imports for Video Playback ---
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
+from PyQt6.QtMultimediaWidgets import QVideoWidget
 
 # Import our Firebase handler
 from firebase_auth import FirebaseAuthHandler
-
-# Custom QLabel for drawing rounded images
-class RoundedImageLabel(QLabel):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setStyleSheet("border-radius: 15px; background-color: transparent;")
-        self.setScaledContents(False)
-
-    def setPixmap(self, pixmap):
-        self.pixmap = pixmap
-        self.update()
-
-    def paintEvent(self, event):
-        if hasattr(self, 'pixmap') and not self.pixmap.isNull():
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            rect = self.rect()
-            path = QPainterPath()
-            path.addRoundedRect(QRectF(rect), 15, 15)
-            painter.setClipPath(path)
-            scaled_pixmap = self.pixmap.scaled(
-                self.size(),
-                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                Qt.TransformationMode.SmoothTransformation
-            )
-            point = self.rect().center() - scaled_pixmap.rect().center()
-            painter.drawPixmap(point, scaled_pixmap)
-
-class RoundedSlide(QWidget):
-    def __init__(self, radius=15, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.radius = radius
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setStyleSheet("background-color: transparent;")
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        rect = self.rect()
-        path = QPainterPath()
-        path.addRoundedRect(QRectF(rect), self.radius, self.radius)
-        painter.setClipPath(path)
-        # We don't call super().paintEvent() because we are handling the background
-        # and clipping, and the children (image, caption) will paint themselves.
 
 class LoginPanel(QWidget):
     show_signup_requested = pyqtSignal()
@@ -215,56 +173,39 @@ class AuthWindow(QWidget):
         self.setWindowTitle("Create an Account")
         self.setFixedSize(960, 600)
         self.firebase_auth = FirebaseAuthHandler()
-        self.dot_animations = []
+        
+        self.media_player = QMediaPlayer()
+        self.audio_output = QAudioOutput() 
+        self.media_player.setAudioOutput(self.audio_output)
+        
+        self.media_player.errorOccurred.connect(self.media_player_error)
+        
         self.init_ui()
         self.apply_stylesheet()
-        self.slide_timer = QTimer(self)
-        self.slide_timer.timeout.connect(self.next_slide)
-        self.slide_timer.start(3000)
 
     def init_ui(self):
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
+        # --- Left Panel ---
         left_panel = QWidget()
         left_panel.setObjectName("leftPanel")
         left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(20, 20, 20, 20)
-        
-        self.image_stack = QStackedWidget()
-        slide1 = self.create_image_slide("slide1.jpg", "Showcase your product\nin a beautiful way.")
-        slide2 = self.create_image_slide("slide2.jpg", "Engage users with\nvibrant visuals.")
-        slide3 = self.create_image_slide("slide3.jpg", "Highlight key features\nand benefits.")
-        for slide in [slide1, slide2, slide3]:
-            self.image_stack.addWidget(slide)
-        
-        slide_master_container = QWidget()
-        slide_master_layout = QGridLayout(slide_master_container)
-        slide_master_layout.setContentsMargins(0,0,0,0)
-        
-        indicator_container = QWidget()
-        indicator_container.setObjectName("indicatorContainer")
-        indicator_layout = QHBoxLayout(indicator_container)
-        indicator_layout.setContentsMargins(0, 0, 0, 20)
-        indicator_layout.setSpacing(10)
-        indicator_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
-        
-        self.indicator_dots = []
-        for i in range(self.image_stack.count()):
-            dot = QWidget()
-            dot.setFixedSize(8, 8)
-            self.indicator_dots.append(dot)
-            indicator_layout.addWidget(dot)
-            anim = QPropertyAnimation(dot, b"minimumSize")
-            anim.setDuration(300)
-            anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
-            self.dot_animations.append(anim)
+        left_layout.setContentsMargins(0, 0, 0, 0)
 
-        slide_master_layout.addWidget(self.image_stack, 0, 0)
-        slide_master_layout.addWidget(indicator_container, 0, 0)
-        left_layout.addWidget(slide_master_container)
+        self.video_widget = QVideoWidget()
+        self.video_widget.setAspectRatioMode(Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+        left_layout.addWidget(self.video_widget)
         
+        self.media_player.setVideoOutput(self.video_widget)
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        video_path = os.path.join(script_dir, "VID.mp4")
+        self.media_player.setSource(QUrl.fromLocalFile(video_path))
+        self.media_player.setLoops(QMediaPlayer.Loops.Infinite)
+        self.media_player.play()
+        
+        # --- Right Panel ---
         self.stacked_widget = QStackedWidget()
         self.signup_panel = SignUpPanel(self.firebase_auth)
         self.login_panel = LoginPanel(self.firebase_auth)
@@ -275,53 +216,35 @@ class AuthWindow(QWidget):
         self.login_panel.show_signup_requested.connect(self.show_signup)
         self.signup_panel.signup_successful.connect(self.show_login)
         self.login_panel.login_successful.connect(self.login_successful.emit)
-    
+
+    # --- Assemble Main Layout ---
         main_layout.addWidget(left_panel, 1)
+
+        # --- Separator (trimmed, centered) ---
+        sep_container = QWidget()
+        sep_v = QVBoxLayout(sep_container)
+        sep_v.setContentsMargins(0, 40, 0, 40)  # trim from top & bottom
+        sep_v.setSpacing(0)
+
+        separator = QFrame()
+        separator.setObjectName("separatorLine")
+        separator.setFrameShape(QFrame.Shape.NoFrame)  # we'll style it flat
+        separator.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        separator.setFixedWidth(2)  # thickness
+
+        sep_v.addStretch()
+        sep_v.addWidget(separator, alignment=Qt.AlignmentFlag.AlignHCenter)
+        sep_v.addStretch()
+
+        main_layout.addWidget(sep_container, 0)
+
+
         main_layout.addWidget(self.stacked_widget, 1)
     
-        self.update_indicators(0)
-
-    def create_image_slide(self, image_path, caption_text):
-        slide = RoundedSlide(radius=15)
-        layout = QGridLayout(slide)
-        layout.setContentsMargins(0, 0, 0, 0)
-        image_label = RoundedImageLabel()
-        pixmap = QPixmap(image_path)
-        if pixmap.isNull():
-            print(f"Error: Image not found at '{image_path}'.")
-            error_label = QLabel(f"Image Not Found:\n{image_path}")
-            error_label.setStyleSheet("background-color: #555; color: white; font-size: 20px; border-radius: 15px;")
-            error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            layout.addWidget(error_label, 0, 0)
-        else:
-            image_label.setPixmap(pixmap)
-            layout.addWidget(image_label, 0, 0)
-        caption_label = QLabel(caption_text)
-        caption_label.setObjectName("captionLabel")
-        caption_label.setWordWrap(True)
-        caption_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
-        caption_label.setContentsMargins(40, 40, 40, 60)
-        layout.addWidget(caption_label, 0, 0)
-        return slide
-
-    def next_slide(self):
-        current_index = self.image_stack.currentIndex()
-        next_index = (current_index + 1) % self.image_stack.count()
-        self.image_stack.setCurrentIndex(next_index)
-        self.update_indicators(next_index)
-
-    def update_indicators(self, index):
-        for i, dot in enumerate(self.indicator_dots):
-            dot.setObjectName("indicatorDotActive" if i == index else "indicatorDotInactive")
-            animation = self.dot_animations[i]
-            if i == index:
-                animation.setEndValue(QSize(24, 8))
-            else:
-                animation.setEndValue(QSize(8, 8))
-            animation.start()
-            dot.style().unpolish(dot)
-            dot.style().polish(dot)
-
+    def media_player_error(self, error, error_string):
+        print(f"Video Player Error: {error_string}")
+        QMessageBox.critical(self, "Video Error", f"Could not play video: {error_string}")
+    
     def show_login(self):
         self.stacked_widget.setCurrentWidget(self.login_panel)
         self.setWindowTitle("Sign In")
@@ -331,31 +254,21 @@ class AuthWindow(QWidget):
         self.setWindowTitle("Create an Account")
 
     def apply_stylesheet(self):
-        # ++ CORRECTED STYLESHEET ++
         self.setStyleSheet("""
-            /* This dark background makes the left panel visible and provides contrast. */
-            #leftPanel { 
+            #leftPanel, #rightPanel { 
                 background-color: #ffffff; 
             }
 
-            /* This ensures the right panel has the clean white background you want. */
-            #rightPanel { 
-                background-color: #ffffff; 
-            }
-            
-            #indicatorContainer { background-color: transparent; }
-            #indicatorDotInactive { 
-                background-color: rgba(255, 255, 255, 0.5); 
-                border-radius: 4px; 
-            }
-            #indicatorDotActive { 
-                background-color: #ffffff; 
-                border-radius: 4px; 
+            #separatorLine {
+                background-color: #ced4da;   /* grey */
+                border-radius: 1px;           /* soft ends (optional) */
             }
 
+                           
             #titleLabel { color: #212529; font-size: 28px; font-weight: bold; }
             #subtitleLabel { color: #6c757d; font-size: 14px; }
             #subtitleLabel a { color: #4188ff; text-decoration: none; }
+                    
 
             QLineEdit, QTextEdit { 
                 background-color: #ffffff; 
@@ -381,18 +294,9 @@ class AuthWindow(QWidget):
             QPushButton#createAccountButton:hover { 
                 background-color: #3a79e0; 
             }
-
-            /* A dark, semi-transparent background for the caption looks best on images. */
-            #captionLabel {
-                color: #ffffff;
-                font-size: 28px;
-                font-weight: bold;
-                background-color: rgba(0, 0, 0, 0.4);
-            }
         """)
 
 # This block is for testing login.py independently. 
-# Your main.py will not use this.
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     auth_window = AuthWindow()
