@@ -696,7 +696,8 @@ class DeviceCard(QPushButton):
         if 'android' in device_type:
             icon = qta.icon('fa5s.mobile-alt', color='#1e293b', color_active='#3b82f6')
         elif 'usb' in bus_type or 'usb' in device_type:
-            icon = qta.icon('fa5s.usb', color='#1e293b', color_active='#3b82f6')
+            # Changed 'fa5s.usb' to 'fa5s.plug'
+            icon = qta.icon('fa5s.plug', color='#1e293b', color_active='#3b82f6') 
         elif 'ssd' in device_type or 'nvme' in bus_type:
             icon = qta.icon('fa5s.microchip', color='#1e293b', color_active='#3b82f6')
         elif 'hdd' in device_type or 'hard' in device_type:
@@ -817,7 +818,8 @@ class DetailsDialog(QDialog):
         if 'android' in device_type:
             icon = qta.icon('fa5s.mobile-alt', color='#3b82f6')
         elif 'usb' in bus_type:
-            icon = qta.icon('fa5s.usb', color='#3b82f6')
+            # Changed 'fa5s.usb' to 'fa5s.plug'
+            icon = qta.icon('fa5s.plug', color='#3b82f6') 
         elif 'ssd' in device_type or 'nvme' in bus_type:
             icon = qta.icon('fa5s.microchip', color='#3b82f6')
         elif 'hdd' in device_type:
