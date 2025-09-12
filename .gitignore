@@ -4,3 +4,6 @@ __pycache__/
 
 # Environment
 .env
+
+#ISO 
+ubuntu-24.04.3-2025.09.01-live-server-amd64.iso
