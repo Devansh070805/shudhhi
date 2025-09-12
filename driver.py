@@ -344,9 +344,17 @@ STYLESHEET = """
     }
 
     QPushButton#BootableButton:hover {
-        color: #2f9419;
+        color: #74e65c;
         background: rgba(241,245,249,0.9);
-        border: 3px solid rgba(47, 148, 25,0.6);
+        border: 3px solid rgba(115, 230, 92,0.6);
+    }
+    QPushButton#BootableButton:disabled {
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+            stop:0 #f1f5f9, stop:1 #e2e8f0);
+        color: #94a3b8;
+        border: 2px solid rgba(148, 163, 184,0.6);
+        box-shadow: none;
+        transform: none;
     }
 
     /* === DETAILS DIALOG: FLOATING PERFECTION === */
@@ -1065,6 +1073,7 @@ class ShudhhiApp(QWidget):
 
         self.boot_button = QPushButton("Boot")
         self.boot_button.setObjectName("BootableButton")
+        self.boot_button.setEnabled(False)
         self.boot_button.clicked.connect(self.on_click_advanced_options)  # implement this handler if needed
         self.boot_button.setCursor(Qt.CursorShape.PointingHandCursor)
 
@@ -1182,10 +1191,12 @@ class ShudhhiApp(QWidget):
         if divine_selection.isChecked():
             self.selected_card = divine_selection
             self.wipe_divinity.setEnabled(True)
+            self.boot_button.setEnabled(True)
             print(f"Selected: {self.selected_card.device_name}")
         else:
             self.selected_card = None
             self.wipe_divinity.setEnabled(False)
+            self.boot_button.setEnabled(False)
             print("Selection cleared.")
 
     def show_more_info_dialog(self, device_essence):
