@@ -278,25 +278,21 @@ STYLESHEET = """
 
     /* === PRIMARY ACTION BUTTON: DIVINE POWER === */
     QPushButton#WipeButton {
-        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-            stop:0 #3b82f6, stop:1 #2563eb);
+        font-family: 'SF Pro Text', 'Inter', system-ui, sans-serif;
+        font-size: 14pt;
+        font-weight: 500;
         color: #ff0000;
-        font-family: 'SF Pro Display', 'Inter', system-ui, sans-serif;
-        font-size: 16pt;
-        font-weight: 700;
-        padding: 18px 48px;
-        border-radius: 14px;
-        border: none;
-        min-height: 56px;
-        min-width: 200px;
-        letter-spacing: 0.2px;
-        box-shadow: 0 4px 14px rgba(59,130,246,0.3), 0 2px 4px rgba(0,0,0,0.1);
+        background: #000000;
+        border: 2px solid rgba(225,0,0,0.6);
+        border-radius: 10px;
+        padding: 12px 24px;
+        margin-right: 16px;
     }
 
     QPushButton#WipeButton:hover {
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
             stop:0 #2563eb, stop:1 #1d4ed8);
-        box-shadow: 0 6px 20px rgba(59,130,246,0.4), 0 4px 8px rgba(0,0,0,0.15);
+        border: 3px solid rgba(225,0,0,0.6);
         transform: translateY(-1px);
     }
 
@@ -310,6 +306,7 @@ STYLESHEET = """
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
             stop:0 #f1f5f9, stop:1 #e2e8f0);
         color: #94a3b8;
+        border: 2px solid rgba(148, 163, 184,0.6);
         box-shadow: none;
         transform: none;
     }
@@ -320,7 +317,7 @@ STYLESHEET = """
         font-size: 14pt;
         font-weight: 500;
         color: #64748b;
-        background: rgba(248,250,252,0.8);
+        background: #000000;
         border: 2px solid rgba(0,0,0,0.6);
         border-radius: 10px;
         padding: 12px 24px;
@@ -331,6 +328,25 @@ STYLESHEET = """
         color: #475569;
         background: rgba(241,245,249,0.9);
         border: 3px solid rgba(0,0,0,0.6);
+    }
+
+    /* === BOOTABLE BUTTON: === */
+    QPushButton#BootableButton {
+        font-family: 'SF Pro Text', 'Inter', system-ui, sans-serif;
+        font-size: 14pt;
+        font-weight: 500;
+        color: #2f9419;
+        background: rgba(241,245,249,0.9);
+        border: 2px solid rgba(47, 148, 25,0.6);
+        border-radius: 10px;
+        padding: 12px 24px;
+        margin-right: 16px;
+    }
+
+    QPushButton#BootableButton:hover {
+        color: #2f9419;
+        background: rgba(241,245,249,0.9);
+        border: 3px solid rgba(47, 148, 25,0.6);
     }
 
     /* === DETAILS DIALOG: FLOATING PERFECTION === */
@@ -1046,6 +1062,12 @@ class ShudhhiApp(QWidget):
         self.advanced_gateway.setObjectName("AdvancedButton")
         self.advanced_gateway.clicked.connect(self.on_click_advanced_options)
         self.advanced_gateway.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        self.boot_button = QPushButton("Boot")
+        self.boot_button.setObjectName("BootableButton")
+        self.boot_button.clicked.connect(self.on_click_advanced_options)  # implement this handler if needed
+        self.boot_button.setCursor(Qt.CursorShape.PointingHandCursor)
+
         
         # THE ULTIMATE WIPE BUTTON - APEX OF POWER
         self.wipe_divinity = QPushButton("Wipe Now")
@@ -1059,6 +1081,8 @@ class ShudhhiApp(QWidget):
         
         # TRANSCENDENT ACTION ASSEMBLY
         action_cosmos.addWidget(self.advanced_gateway)
+        action_cosmos.addStretch()
+        action_cosmos.addWidget(self.boot_button)
         action_cosmos.addStretch()
         action_cosmos.addWidget(self.wipe_divinity)
         action_cosmos.addStretch()
