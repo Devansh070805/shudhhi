@@ -9,6 +9,9 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QPushButton,
 from PyQt6.QtCore import Qt, QThread, QObject, pyqtSignal, pyqtSlot, QSize
 from PyQt6.QtGui import QMovie
 
+global iso_file 
+iso_file = "ubuntu-24.04.3-2025.09.01-live-server-amd64.iso"
+
 # --- Worker Object for Threading ---
 class CreatorWorker(QObject):
     status_changed = pyqtSignal(str)
@@ -154,7 +157,7 @@ class ProgressDialog(QDialog):
         self.accept()
 
 # --- Main function to be called from a larger app ---
-def start_usb_creation_gui(disk_identifier: str, iso_file: str):
+def start_usb_creation_gui(disk_identifier: str):
     app = QApplication.instance() or QApplication(sys.argv)
     
     # FIX: Check for root/admin privileges at the start.
@@ -173,13 +176,6 @@ if __name__ == '__main__':
     # For example: 'sudo python your_script_name.py'
     
     target_disk = "/dev/disk10" 
-    iso_path = "ubuntu-24.04.3-2025.09.01-live-server-amd64.iso"
+
     
-    print(f"Starting USB creation process for {target_disk}...")
-    was_successful = start_usb_creation_gui(target_disk, iso_path)
-    
-    if was_successful:
-        print("\nProcess finished: Success!")
-    else:
-        print("\nProcess finished: Failed or was cancelled.")
 
