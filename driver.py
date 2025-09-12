@@ -540,6 +540,9 @@ class WipeWorker(QObject):
             end_time_obj = datetime.datetime.now() 
             self.wipe_finished.emit(success, message, end_time_obj)
 
+class BootableDialog(QDialog):
+    
+
 class AdvancedWipeDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1074,7 +1077,7 @@ class ShudhhiApp(QWidget):
         self.boot_button = QPushButton("Boot")
         self.boot_button.setObjectName("BootableButton")
         self.boot_button.setEnabled(False)
-        self.boot_button.clicked.connect(self.on_click_advanced_options)  # implement this handler if needed
+        self.boot_button.clicked.connect(self.on_click_bootable)  # implement this handler if needed
         self.boot_button.setCursor(Qt.CursorShape.PointingHandCursor)
 
         
@@ -1214,6 +1217,10 @@ class ShudhhiApp(QWidget):
 
     def on_click_advanced_options(self):
         dialog = AdvancedWipeDialog(self)
+        dialog.exec()
+    
+    def on_click_bootable(self):
+        dialog = BootableDialog(self)
         dialog.exec()
 
     # --- YOUR ORIGINAL LOGIC (ADAPTED) ---
