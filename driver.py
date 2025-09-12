@@ -280,7 +280,7 @@ STYLESHEET = """
     QPushButton#WipeButton {
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
             stop:0 #3b82f6, stop:1 #2563eb);
-        color: #ffffff;
+        color: #ff0000;
         font-family: 'SF Pro Display', 'Inter', system-ui, sans-serif;
         font-size: 16pt;
         font-weight: 700;
@@ -321,7 +321,7 @@ STYLESHEET = """
         font-weight: 500;
         color: #64748b;
         background: rgba(248,250,252,0.8);
-        border: 1px solid rgba(226,232,240,0.6);
+        border: 2px solid rgba(0,0,0,0.6);
         border-radius: 10px;
         padding: 12px 24px;
         margin-right: 16px;
@@ -330,7 +330,7 @@ STYLESHEET = """
     QPushButton#AdvancedButton:hover {
         color: #475569;
         background: rgba(241,245,249,0.9);
-        border: 1px solid rgba(203,213,225,0.8);
+        border: 3px solid rgba(0,0,0,0.6);
     }
 
     /* === DETAILS DIALOG: FLOATING PERFECTION === */
@@ -931,6 +931,7 @@ class ShudhhiApp(QWidget):
         super().__init__()
         self.device_cards = []
         self.selected_card = None
+        self.no_devices_message_widget = None # <--- NEW: Keep track of the 'no devices' widget
         self.init_ui()
         self.setup_device_watcher()
 
@@ -1049,7 +1050,7 @@ class ShudhhiApp(QWidget):
         # THE ULTIMATE WIPE BUTTON - APEX OF POWER
         self.wipe_divinity = QPushButton("Wipe Now")
         self.wipe_divinity.setObjectName("WipeButton")
-        wipe_icon = qta.icon('fa5s.eraser', color='white')
+        wipe_icon = qta.icon('fa5s.eraser', color='red')
         self.wipe_divinity.setIcon(wipe_icon)
         self.wipe_divinity.setIconSize(QSize(20, 20))
         self.wipe_divinity.setEnabled(False)
@@ -1069,13 +1070,26 @@ class ShudhhiApp(QWidget):
         cosmic_layout.addWidget(content_sanctuary, 1)
 
     def update_device_list(self):
-        # PURGE PREVIOUS MANIFESTATIONS
+        # PURGE PREVIOUS MANIFESTATIONS (device cards)
         for card in self.device_cards:
             card.setParent(None)
+            card.deleteLater() # Ensure the widgets are properly cleaned up
         self.device_cards = []
         
+        # <--- NEW: Remove existing 'no devices' message if it's there
+        if self.no_devices_message_widget:
+            self.no_devices_message_widget.setParent(None)
+            self.no_devices_message_widget.deleteLater()
+            self.no_devices_message_widget = None
+
         # MANIFEST NEW DEVICE CARDS OR SHOW ETHEREAL EMPTINESS
         if name_to_details:
+            # Hide the 'no devices' message if it was previously visible
+            if self.no_devices_message_widget:
+                self.no_devices_message_widget.setParent(None)
+                self.no_devices_message_widget.deleteLater()
+                self.no_devices_message_widget = None
+
             for device_name, device_essence in name_to_details.items():
                 # CREATE DIVINE DEVICE CARD
                 card_manifestation = DeviceCard(device_name, device_essence)
@@ -1086,40 +1100,52 @@ class ShudhhiApp(QWidget):
                 self.device_cards.append(card_manifestation)
         else:
             # MANIFEST EMPTINESS MESSAGE WITH CELESTIAL GRACE
-            emptiness_vessel = QWidget()
-            emptiness_cosmos = QVBoxLayout(emptiness_vessel)
-            emptiness_cosmos.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            emptiness_cosmos.setSpacing(16)
+            # <--- NEW: Only create and add the message if it doesn't already exist
+            if not self.no_devices_message_widget:
+                emptiness_vessel = QWidget()
+                emptiness_cosmos = QVBoxLayout(emptiness_vessel)
+                emptiness_cosmos.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                emptiness_cosmos.setSpacing(16)
+                
+                # DIVINE EMPTY STATE ICON
+                empty_icon_label = QLabel()
+                empty_icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                empty_icon = qta.icon('fa5s.inbox', color='#94a3b8')
+                empty_icon_label.setPixmap(empty_icon.pixmap(QSize(64, 64)))
+                
+                # TRANSCENDENT EMPTY MESSAGE
+                empty_message = QLabel("No devices detected")
+                empty_message.setStyleSheet("""
+                    font-family: 'SF Pro Display', 'Inter', system-ui, sans-serif;
+                    font-size: 20pt;
+                    font-weight: 600;
+                    color: #64748b;
+                    text-align: center;
+                """)
+                
+                empty_subtitle = QLabel("Connect a storage device to begin secure wiping")
+                empty_subtitle.setStyleSheet("""
+                    font-family: 'SF Pro Text', 'Inter', system-ui, sans-serif;
+                    font-size: 14pt;
+                    color: #94a3b8;
+                    text-align: center;
+                """)
+                
+                emptiness_cosmos.addWidget(empty_icon_label)
+                emptiness_cosmos.addWidget(empty_message)
+                emptiness_cosmos.addWidget(empty_subtitle)
+                
+                self.device_constellation.addWidget(emptiness_vessel)
+                self.no_devices_message_widget = emptiness_vessel # <--- NEW: Store reference
             
-            # DIVINE EMPTY STATE ICON
-            empty_icon_label = QLabel()
-            empty_icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            empty_icon = qta.icon('fa5s.inbox', color='#94a3b8')
-            empty_icon_label.setPixmap(empty_icon.pixmap(QSize(64, 64)))
-            
-            # TRANSCENDENT EMPTY MESSAGE
-            empty_message = QLabel("No devices detected")
-            empty_message.setStyleSheet("""
-                font-family: 'SF Pro Display', 'Inter', system-ui, sans-serif;
-                font-size: 20pt;
-                font-weight: 600;
-                color: #64748b;
-                text-align: center;
-            """)
-            
-            empty_subtitle = QLabel("Connect a storage device to begin secure wiping")
-            empty_subtitle.setStyleSheet("""
-                font-family: 'SF Pro Text', 'Inter', system-ui, sans-serif;
-                font-size: 14pt;
-                color: #94a3b8;
-                text-align: center;
-            """)
-            
-            emptiness_cosmos.addWidget(empty_icon_label)
-            emptiness_cosmos.addWidget(empty_message)
-            emptiness_cosmos.addWidget(empty_subtitle)
-            
-            self.device_constellation.addWidget(emptiness_vessel)
+        # Ensure that if devices were removed, the layout is updated, and if the message appeared, it's at the top.
+        # Adding a stretch to the end of the layout to push everything to the top.
+        # This will clear any existing stretch items before adding a new one.
+        for i in reversed(range(self.device_constellation.count())): 
+            item = self.device_constellation.itemAt(i)
+            if item and item.spacerItem():
+                self.device_constellation.removeItem(item)
+        self.device_constellation.addStretch(1) # Add stretch to push content to top
 
     def on_device_selected(self):
         divine_selection = self.sender()
