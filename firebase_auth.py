@@ -7,13 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class FirebaseAuthHandler:
-    """
-    Handles all Firebase Authentication and Database related tasks.
-    """
     def __init__(self):
-        # --- IMPORTANT ---
-        # PASTE YOUR FIREBASE CONFIGURATION HERE
-        # AND ADD YOUR DATABASE URL
         firebase_config = {
           "apiKey": os.getenv("FIREBASE_API_KEY"),
           "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN"),
@@ -40,10 +34,6 @@ class FirebaseAuthHandler:
             exit()
 
     def create_account(self, email, password, first_name, last_name, address):
-        """
-        Creates a new user account and saves their profile data to the database.
-        Returns the user object on success, otherwise raises an exception.
-        """
         try:
             # Step 1: Create the user in Firebase Authentication
             user = self.auth.create_user_with_email_and_password(email, password)
@@ -71,10 +61,6 @@ class FirebaseAuthHandler:
             self.handle_firebase_error(e)
 
     def sign_in(self, email, password):
-        """
-        Signs in a user with their email and password.
-        Returns the user object on success, otherwise raises an exception.
-        """
         try:
             user = self.auth.sign_in_with_email_and_password(email, password)
             print(f"Successfully signed in as {email}")
@@ -83,13 +69,11 @@ class FirebaseAuthHandler:
             self.handle_firebase_error(e)
             
     def handle_firebase_error(self, e):
-        """A helper function to parse and raise readable Firebase errors."""
         try:
             error_json = e.args[1]
             error_data = json.loads(error_json)
             error_message = error_data['error']['message']
 
-            # Prettify common Firebase error messages
             if error_message == "EMAIL_EXISTS":
                 raise Exception("This email address is already in use.")
             elif "WEAK_PASSWORD" in error_message:

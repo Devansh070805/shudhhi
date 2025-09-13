@@ -1,3 +1,9 @@
-.env
+# Python
 __pycache__/
 *.pyc
+
+# Environment
+.env
+
+#ISO 
+*.iso

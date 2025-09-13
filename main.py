@@ -19,7 +19,7 @@ def main():
     app.setStyleSheet(STYLESHEET)
 
     # Create AuthWindow first
-    auth_window = AuthWindow()
+    auth_window = AuthWindow() 
 
     def on_auth_success(user):
         global main_window
