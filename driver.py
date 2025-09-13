@@ -317,8 +317,6 @@ STYLESHEET = """
         font-weight: 500;
         color: #64748b;
         background: #000000;
-        border: 2px solid rgba(0,0,0,0.6);
-        border-radius: 10px;
         padding: 12px 24px;
         margin-right: 16px;
     }
@@ -326,7 +324,6 @@ STYLESHEET = """
     QPushButton#AdvancedButton:hover {
         color: #475569;
         background: rgba(241,245,249,0.9);
-        border: 3px solid rgba(0,0,0,0.6);
     }
 
     /* === BOOTABLE BUTTON: === */
@@ -1071,7 +1068,7 @@ class ShudhhiApp(QWidget):
         self.advanced_gateway.clicked.connect(self.on_click_advanced_options)
         self.advanced_gateway.setCursor(Qt.CursorShape.PointingHandCursor)
 
-        self.boot_button = QPushButton("Boot")
+        self.boot_button = QPushButton("Create Bootable Media")
         self.boot_button.setObjectName("BootableButton")
         self.boot_button.setEnabled(False)
         self.boot_button.clicked.connect(self.on_click_bootable)  # implement this handler if needed
@@ -1091,10 +1088,9 @@ class ShudhhiApp(QWidget):
         # TRANSCENDENT ACTION ASSEMBLY
         action_cosmos.addWidget(self.advanced_gateway)
         action_cosmos.addStretch()
+        action_cosmos.addStretch()
         action_cosmos.addWidget(self.boot_button)
-        action_cosmos.addStretch()
         action_cosmos.addWidget(self.wipe_divinity)
-        action_cosmos.addStretch()
         
         content_cosmos.addWidget(action_realm)
 
