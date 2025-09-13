@@ -13,8 +13,6 @@ import datetime
 import threading
 import sys
 import os
-
-# --- Original Modules from your implementation ---
 from system_os.linux.linux_disks import get_disks_linux
 from system_os.windows.windows_disks import get_disks_windows
 from system_os.darwin.darwin_disks import get_disks_darwin
@@ -31,6 +29,7 @@ except ImportError:
         return {"mountpoint": disk_id}
 from device_watcher import DriveWatcher
 
+from bootable import start_usb_creation_gui
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,QPushButton, QComboBox, QLabel, QMessageBox, QDialog, QTextEdit, QDialogButtonBox, QSpacerItem, QSizePolicy, QFrame, QScrollArea)
 from PyQt6.QtCore import Qt, QThread, QObject, pyqtSignal, pyqtSlot, QSize, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QIcon, QFontDatabase, QMovie, QFont, QPixmap
@@ -286,6 +285,7 @@ STYLESHEET = """
         border: 2px solid rgba(225,0,0,0.6);
         border-radius: 10px;
         padding: 12px 24px;
+        margin-right: 16px;
     }
 
     QPushButton#WipeButton:hover {
@@ -317,8 +317,8 @@ STYLESHEET = """
         font-weight: 500;
         color: #64748b;
         background: #000000;
-        border-radius: 10px;
         padding: 12px 24px;
+        margin-right: 16px;
     }
 
     QPushButton#AdvancedButton:hover {
@@ -336,6 +336,7 @@ STYLESHEET = """
         border: 2px solid rgba(47, 148, 25,0.6);
         border-radius: 10px;
         padding: 12px 24px;
+        margin-right: 16px;
     }
 
     QPushButton#BootableButton:hover {
@@ -535,8 +536,6 @@ class WipeWorker(QObject):
             end_time_obj = datetime.datetime.now() 
             self.wipe_finished.emit(success, message, end_time_obj)
 
-class BootableDialog(QDialog):
-    
 
 class AdvancedWipeDialog(QDialog):
     def __init__(self, parent=None):
@@ -1087,13 +1086,11 @@ class ShudhhiApp(QWidget):
         self.wipe_divinity.setCursor(Qt.CursorShape.PointingHandCursor)
         
         # TRANSCENDENT ACTION ASSEMBLY
-        
         action_cosmos.addWidget(self.advanced_gateway)
         action_cosmos.addStretch()
         action_cosmos.addStretch()
         action_cosmos.addWidget(self.boot_button)
         action_cosmos.addWidget(self.wipe_divinity)
-        
         
         content_cosmos.addWidget(action_realm)
 
@@ -1216,8 +1213,16 @@ class ShudhhiApp(QWidget):
         dialog.exec()
     
     def on_click_bootable(self):
-        dialog = BootableDialog(self)
-        dialog.exec()
+        print("device selected for boot", self.selected_card.device_name)
+        selected_key = self.selected_card.device_name
+        disk_id = name_to_id[selected_key]
+        print(f"Starting USB creation process for {disk_id}...")
+        was_successful = start_usb_creation_gui(disk_id)
+
+        if was_successful:
+            print("\nProcess finished: Success!")
+        else:
+            print("\nProcess finished: Failed or was cancelled.")
 
     # --- YOUR ORIGINAL LOGIC (ADAPTED) ---
     def on_button_click(self):
