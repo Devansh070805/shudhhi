@@ -169,13 +169,3 @@ def start_usb_creation_gui(disk_identifier: str):
     dialog = ProgressDialog(disk_identifier, iso_file)
     dialog.exec()
     return dialog.success
-
-# --- Main execution block for testing ---
-if __name__ == '__main__':
-    # CRITICAL: This script must now be run as root/sudo
-    # For example: 'sudo python your_script_name.py'
-    
-    target_disk = "/dev/disk10" 
-
-    
-
