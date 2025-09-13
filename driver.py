@@ -41,6 +41,12 @@ disk_info = {}
 name_to_id = {}
 name_to_details = {} # Added to support the new UI
 display_options = []
+# --- Global variables that will be updated ---
+os_name = platform.system()
+disk_info = {}
+name_to_id = {}
+name_to_details = {} # Added to support the new UI
+display_options = []
 print(f'Detected System: {os_name}')
 
 def refresh_disk_info():
@@ -52,6 +58,54 @@ def refresh_disk_info():
     
     print(f"Refreshing disk list for {os_name}...")
 
+def refresh_disk_info():
+    """
+    Scans the system for disks and updates the global variables.
+    This function is called on startup and whenever a drive change is detected.
+    """
+    global disk_info, name_to_id, name_to_details, display_options
+    
+    print(f"Refreshing disk list for {os_name}...")
+
+    if os_name == 'Linux':
+        disk_info, name_to_id = get_disks_linux()
+    elif os_name == 'Windows':
+        disk_info, name_to_id = get_disks_windows()
+    elif os_name == 'Darwin':
+        disk_info, name_to_id = get_disks_darwin()
+    # Android is not treated as an OS, but as an external device
+    # To add Android devices, append them to disk_info and name_to_id separately
+    try:
+        from system_os.android.android_storage_detector import get_disks_android
+        android_disks = get_disks_android()
+    except ImportError:
+        try:
+            android_disks = get_disks_android()  # Use the imported version
+        except:
+            android_disks = []  # Fallback if neither works
+    for idx, disk in enumerate(android_disks):
+        label = f"Android Device {idx+1}: {disk['mountpoint']}"
+        disk_info[label] = disk['mountpoint']
+        name_to_id[label] = disk['mountpoint']
+    
+    # Create name_to_details for the new UI (this is a simplified implementation)
+    name_to_details = {}
+    for name, disk_id in name_to_id.items():
+        # Create simplified details - you can enhance this with your fetch_details functions
+        name_to_details[name] = {
+            'model': name.split(' - ')[0] if ' - ' in name else name,
+            'serial': f"Serial_{hash(disk_id) % 10000}",  # Placeholder
+            'size': disk_info.get(name, 'Unknown'),
+            'bus': 'USB' if 'USB' in name.upper() else 'SATA',
+            'type': 'Android Device' if 'Android' in name else 'External Drive'
+        }
+    
+    # Re-create the display options from the new disk_info
+    display_options = [f"{k} - {v}" for k, v in disk_info.items()]
+    print(f"Disk list refreshed. Found: {display_options}")
+
+# --- Initial scan on startup ---
+refresh_disk_info()
     if os_name == 'Linux':
         disk_info, name_to_id = get_disks_linux()
     elif os_name == 'Windows':
@@ -539,6 +593,8 @@ class WipeWorker(QObject):
             end_time_obj = datetime.datetime.now() 
             self.wipe_finished.emit(success, message, end_time_obj)
 
+class BootableDialog(QDialog):
+    
 
 class AdvancedWipeDialog(QDialog):
     def __init__(self, parent=None):
@@ -956,12 +1012,47 @@ class ShudhhiApp(QWidget):
         self.device_cards = []
         self.selected_card = None
         self.no_devices_message_widget = None # <--- NEW: Keep track of the 'no devices' widget
+        self.device_cards = []
+        self.selected_card = None
+        self.no_devices_message_widget = None # <--- NEW: Keep track of the 'no devices' widget
         self.init_ui()
+        self.setup_device_watcher()
         self.setup_device_watcher()
 
     def init_ui(self):
         self.setObjectName("MainWindow")
+        self.setObjectName("MainWindow")
         self.setWindowTitle("Shudhhi - Secure Disk Wiper")
+        self.setMinimumSize(1200, 800)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
+        
+        # === DIVINE MAIN ORCHESTRATION ===
+        cosmic_layout = QVBoxLayout(self)
+        cosmic_layout.setContentsMargins(0, 0, 0, 0)
+        cosmic_layout.setSpacing(0)
+
+        # === TRANSCENDENT HEADER REALM ===
+        header_sanctuary = QWidget()
+        header_sanctuary.setObjectName("Header")
+        header_sanctuary.setFixedHeight(80)
+        
+        header_cosmos = QHBoxLayout(header_sanctuary)
+        header_cosmos.setContentsMargins(32, 16, 32, 16)
+        header_cosmos.setSpacing(20)
+
+        # DIVINE LOGO MANIFESTATION
+        logo_vessel = QLabel()
+        logo_vessel.setFixedSize(48, 48)
+        logo_vessel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        logo_essence = QPixmap("logo.png")
+        if not logo_essence.isNull():
+            logo_essence = logo_essence.scaled(44, 44, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            logo_vessel.setPixmap(logo_essence)
+        else:
+            # FALLBACK DIVINE SYMBOL
+            logo_icon = qta.icon('fa5s.shield-alt', color='#3b82f6')
+            logo_vessel.setPixmap(logo_icon.pixmap(QSize(44, 44)))
         self.setMinimumSize(1200, 800)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
         
@@ -1211,6 +1302,85 @@ class ShudhhiApp(QWidget):
             
             revelation_dialog.move(dialog_x, dialog_y)
             revelation_dialog.show()
+            # MANIFEST EMPTINESS MESSAGE WITH CELESTIAL GRACE
+            # <--- NEW: Only create and add the message if it doesn't already exist
+            if not self.no_devices_message_widget:
+                emptiness_vessel = QWidget()
+                emptiness_cosmos = QVBoxLayout(emptiness_vessel)
+                emptiness_cosmos.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                emptiness_cosmos.setSpacing(16)
+                
+                # DIVINE EMPTY STATE ICON
+                empty_icon_label = QLabel()
+                empty_icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                empty_icon = qta.icon('fa5s.inbox', color='#94a3b8')
+                empty_icon_label.setPixmap(empty_icon.pixmap(QSize(64, 64)))
+                
+                # TRANSCENDENT EMPTY MESSAGE
+                empty_message = QLabel("No devices detected")
+                empty_message.setStyleSheet("""
+                    font-family: 'SF Pro Display', 'Inter', system-ui, sans-serif;
+                    font-size: 20pt;
+                    font-weight: 600;
+                    color: #64748b;
+                    text-align: center;
+                """)
+                
+                empty_subtitle = QLabel("Connect a storage device to begin secure wiping")
+                empty_subtitle.setStyleSheet("""
+                    font-family: 'SF Pro Text', 'Inter', system-ui, sans-serif;
+                    font-size: 14pt;
+                    color: #94a3b8;
+                    text-align: center;
+                """)
+                
+                emptiness_cosmos.addWidget(empty_icon_label)
+                emptiness_cosmos.addWidget(empty_message)
+                emptiness_cosmos.addWidget(empty_subtitle)
+                
+                self.device_constellation.addWidget(emptiness_vessel)
+                self.no_devices_message_widget = emptiness_vessel # <--- NEW: Store reference
+            
+        # Ensure that if devices were removed, the layout is updated, and if the message appeared, it's at the top.
+        # Adding a stretch to the end of the layout to push everything to the top.
+        # This will clear any existing stretch items before adding a new one.
+        for i in reversed(range(self.device_constellation.count())): 
+            item = self.device_constellation.itemAt(i)
+            if item and item.spacerItem():
+                self.device_constellation.removeItem(item)
+        self.device_constellation.addStretch(1) # Add stretch to push content to top
+
+    def on_device_selected(self):
+        divine_selection = self.sender()
+        
+        # CLEAR ALL OTHER SELECTIONS - ONLY ONE MAY RULE
+        for card in self.device_cards:
+            if card is not divine_selection:
+                card.setChecked(False)
+
+        if divine_selection.isChecked():
+            self.selected_card = divine_selection
+            self.wipe_divinity.setEnabled(True)
+            self.boot_button.setEnabled(True)
+            print(f"Selected: {self.selected_card.device_name}")
+        else:
+            self.selected_card = None
+            self.wipe_divinity.setEnabled(False)
+            self.boot_button.setEnabled(False)
+            print("Selection cleared.")
+
+    def show_more_info_dialog(self, device_essence):
+        if self.selected_card:
+            # MANIFEST ENLIGHTENING DIALOG
+            revelation_dialog = DetailsDialog(self.selected_card.device_name, device_essence, self)
+            
+            # POSITION WITH DIVINE PRECISION
+            cursor_position = self.cursor().pos()
+            dialog_x = max(50, cursor_position.x() - 200)
+            dialog_y = max(50, cursor_position.y() - 150)
+            
+            revelation_dialog.move(dialog_x, dialog_y)
+            revelation_dialog.show()
 
     def on_click_advanced_options(self):
         dialog = AdvancedWipeDialog(self)
@@ -1230,6 +1400,9 @@ class ShudhhiApp(QWidget):
 
     # --- YOUR ORIGINAL LOGIC (ADAPTED) ---
     def on_button_click(self):
+        if self.selected_card:
+            selected_display = f"{self.selected_card.device_name} - {self.selected_card.device_details['size']}"
+            self.show_warning(selected_display)
         if self.selected_card:
             selected_display = f"{self.selected_card.device_name} - {self.selected_card.device_details['size']}"
             self.show_warning(selected_display)
@@ -1261,11 +1434,17 @@ class ShudhhiApp(QWidget):
     def proceed_with_wipe(self, selected_display):
         global start_time
         selected_key = self.selected_card.device_name
+        global start_time
+        selected_key = self.selected_card.device_name
         disk_id = name_to_id[selected_key]
         start_time = datetime.datetime.now()
         print(f"User chose CONTINUE — wiping {disk_id}...")
         
         fetched_data = None
+        if selected_display.startswith("Android Device"):
+            # For Android, just show the mountpoint info
+            fetched_data = {"mountpoint": disk_id}
+        elif os_name == 'Linux':
         if selected_display.startswith("Android Device"):
             # For Android, just show the mountpoint info
             fetched_data = {"mountpoint": disk_id}
@@ -1280,6 +1459,49 @@ class ShudhhiApp(QWidget):
         progress_dialog = WipeProgressDialog(disk_id, selected_display, fetched_data, self)
         progress_dialog.exec()
 
+    def setup_device_watcher(self):
+        """Creates and starts the background thread for monitoring disk changes."""
+        self.device_watcher = DriveWatcher()
+        
+        # Connect the signal from the watcher to our new handler slot
+        self.device_watcher.drives_changed.connect(self.handle_drive_change)
+        
+        # Start the background thread
+        self.device_watcher.start()
+
+    @pyqtSlot(list)
+    def handle_drive_change(self, detected_drives):
+        """
+        This slot is triggered when the DriveWatcher detects a change.
+        It re-scans for disks and updates the UI with divine precision.
+        """
+        print("Signal received from watcher. Re-evaluating disk list.")
+        
+        # REFRESH THE COSMIC DISK KNOWLEDGE
+        refresh_disk_info()
+        
+        # MANIFEST THE NEW DEVICE REALITY
+        self.update_device_list()
+        
+        # RESET DIVINE SELECTION STATE
+        self.selected_card = None
+        self.wipe_divinity.setEnabled(False)
+
+    def closeEvent(self, event):
+        """Stops the watcher thread when the main window is closed."""
+        print("Closing application, stopping drive watcher...")
+        self.device_watcher.stop()
+        self.device_watcher.wait() # Wait for the thread to finish
+        event.accept()
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    # Load custom font if available
+    QFontDatabase.addApplicationFont("Inter-Regular.ttf") 
+    app.setStyleSheet(STYLESHEET)
+    ex = ShudhhiApp()
+    ex.show()   
+    sys.exit(app.exec())
     def setup_device_watcher(self):
         """Creates and starts the background thread for monitoring disk changes."""
         self.device_watcher = DriveWatcher()
